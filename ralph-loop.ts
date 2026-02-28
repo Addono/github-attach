@@ -486,6 +486,124 @@ async function postToGitHub(
   }
 }
 
+// --- Tool event formatting ---
+
+/**
+ * Produce a concise human-readable description of a tool call from its arguments.
+ * Each tool exposes different argument shapes; we extract the most meaningful field.
+ */
+function formatToolArgs(toolName: string, args: unknown): string {
+  if (!args || typeof args !== "object") return "";
+  const a = args as Record<string, unknown>;
+
+  switch (toolName) {
+    // File viewing / reading
+    case "view":
+    case "read_file":
+    case "open_file": {
+      const file = String(a.path ?? a.filePath ?? a.file ?? "");
+      const start = a.startLine ?? a.start_line ?? "";
+      const end = a.endLine ?? a.end_line ?? "";
+      return file
+        ? `${file}${start ? ` L${start}–${end || "?"}` : ""}`
+        : JSON.stringify(a).slice(0, 120);
+    }
+
+    // Shell execution
+    case "bash":
+    case "run_terminal":
+    case "shell":
+    case "terminal": {
+      const cmd = String(a.command ?? a.cmd ?? a.input ?? "");
+      return cmd ? cmd.slice(0, 200) : JSON.stringify(a).slice(0, 120);
+    }
+
+    // Grep / search
+    case "grep":
+    case "grep_search":
+    case "rg": {
+      const pattern = String(a.query ?? a.pattern ?? a.regex ?? a.search ?? "");
+      const path = a.path ?? a.directory ?? a.glob ?? "";
+      return pattern
+        ? `"${pattern}"${path ? ` in ${path}` : ""}`
+        : JSON.stringify(a).slice(0, 120);
+    }
+
+    // File edit / create
+    case "edit":
+    case "edit_file":
+    case "create":
+    case "create_file":
+    case "write_file":
+    case "replace_string_in_file":
+    case "insert_edit_into_file": {
+      const file = String(a.path ?? a.filePath ?? a.file ?? "");
+      const desc = a.explanation ?? a.description ?? "";
+      return file
+        ? `${file}${desc ? ` (${String(desc).slice(0, 80)})` : ""}`
+        : JSON.stringify(a).slice(0, 120);
+    }
+
+    // Intent / plan reporting
+    case "report_intent":
+    case "intent": {
+      const intent =
+        a.intent ?? a.description ?? a.goal ?? a.plan ?? a.message ?? a.text;
+      return intent ? String(intent).slice(0, 200) : JSON.stringify(a).slice(0, 120);
+    }
+
+    // Git operations
+    case "git":
+    case "git_commit":
+    case "git_push": {
+      const cmd = a.command ?? a.message ?? a.args;
+      return cmd ? String(cmd).slice(0, 200) : JSON.stringify(a).slice(0, 120);
+    }
+
+    // Database / SQL
+    case "sql":
+    case "sqlite":
+    case "db_query": {
+      const query = String(a.query ?? a.sql ?? a.statement ?? "");
+      return query ? query.slice(0, 150) : JSON.stringify(a).slice(0, 120);
+    }
+
+    // glob / find
+    case "glob":
+    case "find_files":
+    case "list_dir": {
+      const pattern = String(a.pattern ?? a.glob ?? a.path ?? a.directory ?? "");
+      return pattern || JSON.stringify(a).slice(0, 120);
+    }
+
+    default:
+      // Best-effort: pick whichever single string field looks most useful
+      for (const key of ["command", "query", "path", "message", "description", "prompt", "text", "input"]) {
+        if (typeof a[key] === "string" && (a[key] as string).length > 0) {
+          return `${key}=${String(a[key]).slice(0, 160)}`;
+        }
+      }
+      return JSON.stringify(a).slice(0, 120);
+  }
+}
+
+/**
+ * Distil a tool result into a one-line summary for the observer.
+ * Returns empty string if the result isn't worth logging.
+ */
+function summariseToolResult(content: string): string {
+  const c = content.trim();
+  if (!c || c.length < 5) return "";
+
+  const lines = c.split("\n").filter((l) => l.trim());
+
+  // For multi-line results show line count + first meaningful line
+  if (lines.length > 3) {
+    return `${lines.length} lines — ${lines[0]!.slice(0, 120)}`;
+  }
+  return lines.join(" ↵ ").slice(0, 200);
+}
+
 // --- Score-maximising improvement context ---
 
 /**
@@ -624,10 +742,20 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
         if (event.type === "tool.execution_start") {
           const name = event.data.toolName;
           toolCounts[name] = (toolCounts[name] ?? 0) + 1;
-          const input = event.data.toolInput
-            ? JSON.stringify(event.data.toolInput).slice(0, 120)
-            : "";
-          log(`  ⚙ ${name}${input ? ` — ${input}` : ""}`, "DEBUG");
+          const detail = formatToolArgs(name, event.data.arguments);
+          log(`⚙ ${name}${detail ? ` — ${detail}` : ""}`, "DEBUG");
+        } else if (event.type === "tool.execution_progress") {
+          const msg = event.data.progressMessage?.trim();
+          if (msg) log(`  ↳ ${msg}`, "DEBUG");
+        } else if (event.type === "tool.execution_complete") {
+          const { success, result } = event.data;
+          if (!success) {
+            const snippet = result?.content?.slice(0, 200) ?? "(no output)";
+            log(`  ✗ tool failed: ${snippet}`, "WARN");
+          } else if (result?.content) {
+            const snippet = summariseToolResult(result.content);
+            if (snippet) log(`  ✓ ${snippet}`, "DEBUG");
+          }
         }
       });
 
