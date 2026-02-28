@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "fs";
 import { validateFile } from "../../../src/core/validation.js";
 import { ValidationError } from "../../../src/core/types.js";

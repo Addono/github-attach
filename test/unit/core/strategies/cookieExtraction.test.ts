@@ -16,14 +16,14 @@ vi.mock("child_process", async () => {
   return {
     execFile: execFileMock,
     default: {
-        execFile: execFileMock,
+      execFile: execFileMock,
     },
   };
 });
 
 // Mock browserSession strategy
 const { mockBrowserSessionUpload } = vi.hoisted(() => {
-    return { mockBrowserSessionUpload: vi.fn() };
+  return { mockBrowserSessionUpload: vi.fn() };
 });
 
 vi.mock("../../../../src/core/strategies/browserSession.js", () => {
@@ -31,18 +31,22 @@ vi.mock("../../../../src/core/strategies/browserSession.js", () => {
     createBrowserSessionStrategy: vi.fn(() => ({
       name: "browser-session",
       isAvailable: async () => true,
-      upload: mockBrowserSessionUpload.mockResolvedValue("https://github.com/test/asset"),
+      upload: mockBrowserSessionUpload.mockResolvedValue(
+        "https://github.com/test/asset",
+      ),
     })),
   };
 });
 
-
 // Import module AFTER mocking
-import { 
-  createCookieExtractionStrategy, 
-  cookieExtractionInternals 
+import {
+  createCookieExtractionStrategy,
+  cookieExtractionInternals,
 } from "../../../../src/core/strategies/cookieExtraction.js";
-import { UploadError, AuthenticationError } from "../../../../src/core/types.js";
+import {
+  UploadError,
+  AuthenticationError,
+} from "../../../../src/core/types.js";
 
 // Helper to mock platform
 const originalPlatform = process.platform;
@@ -64,14 +68,14 @@ describe("Cookie Extraction Strategy", () => {
     vi.resetAllMocks();
     vi.mocked(os.homedir).mockReturnValue("/home/user");
     vi.mocked(os.tmpdir).mockReturnValue("/tmp");
-    
+
     // Default implementation for execFile mock to simulate success
-    execFileMock.mockImplementation((file, args, cb) => {
-        const callback = typeof args === 'function' ? args : cb;
-        if (callback) {
-            callback(null, { stdout: "" });
-        }
-        return {} as any;
+    execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
+      const callback = typeof args === "function" ? args : cb;
+      if (callback) {
+        callback(null, { stdout: "" });
+      }
+      return {} as Record<string, unknown>;
     });
   });
 
@@ -87,25 +91,31 @@ describe("Cookie Extraction Strategy", () => {
       });
 
       const sources = cookieExtractionInternals.findCookieSources();
-      expect(sources).toContainEqual(expect.objectContaining({
-        browser: "chrome",
-        path: "/home/user/.config/google-chrome/Default/Cookies",
-        hostColumn: "host_key",
-      }));
+      expect(sources).toContainEqual(
+        expect.objectContaining({
+          browser: "chrome",
+          path: "/home/user/.config/google-chrome/Default/Cookies",
+          hostColumn: "host_key",
+        }),
+      );
     });
 
     it("finds Chrome cookies on macOS", () => {
       setPlatform("darwin");
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return (p as string).includes("Library/Application Support/Google/Chrome");
+        return (p as string).includes(
+          "Library/Application Support/Google/Chrome",
+        );
       });
 
       const sources = cookieExtractionInternals.findCookieSources();
-      expect(sources).toContainEqual(expect.objectContaining({
-        browser: "chrome",
-        path: "/home/user/Library/Application Support/Google/Chrome/Default/Cookies",
-        hostColumn: "host_key",
-      }));
+      expect(sources).toContainEqual(
+        expect.objectContaining({
+          browser: "chrome",
+          path: "/home/user/Library/Application Support/Google/Chrome/Default/Cookies",
+          hostColumn: "host_key",
+        }),
+      );
     });
 
     it("finds Chrome cookies on Windows", () => {
@@ -116,11 +126,13 @@ describe("Cookie Extraction Strategy", () => {
       });
 
       const sources = cookieExtractionInternals.findCookieSources();
-      
-      const foundSource = sources.find(s => s.browser === "chrome" && s.path.includes("Google"));
+
+      const foundSource = sources.find(
+        (s) => s.browser === "chrome" && s.path.includes("Google"),
+      );
       expect(foundSource).toBeDefined();
       expect(foundSource?.hostColumn).toBe("host_key");
-      
+
       delete process.env.LOCALAPPDATA;
     });
   });
@@ -144,14 +156,22 @@ Path=/opt/firefox/dev
 
       const paths = cookieExtractionInternals.parseFirefoxProfilesIni(
         "/home/user/.mozilla/firefox/profiles.ini",
-        "/home/user/.mozilla/firefox"
+        "/home/user/.mozilla/firefox",
       );
-      
+
       // Normalize paths for comparison
-      const normalizedPaths = paths.map(p => p.replace(/\\/g, '/'));
-      
-      expect(normalizedPaths.some(p => p.includes("Profiles/k2345678.default/cookies.sqlite"))).toBe(true);
-      expect(normalizedPaths.some(p => p.includes("/opt/firefox/dev/cookies.sqlite"))).toBe(true);
+      const normalizedPaths = paths.map((p) => p.replace(/\\/g, "/"));
+
+      expect(
+        normalizedPaths.some((p) =>
+          p.includes("Profiles/k2345678.default/cookies.sqlite"),
+        ),
+      ).toBe(true);
+      expect(
+        normalizedPaths.some((p) =>
+          p.includes("/opt/firefox/dev/cookies.sqlite"),
+        ),
+      ).toBe(true);
     });
 
     it("falls back to directory scanning if profiles.ini missing", () => {
@@ -163,13 +183,15 @@ Path=/opt/firefox/dev
       });
       vi.mocked(fs.readdirSync).mockReturnValue([
         "k2345678.default",
-        "random.profile"
-      ] as any);
+        "random.profile",
+      ] as unknown as fs.Dirent[]);
 
-      const paths = cookieExtractionInternals.findFirefoxCookiePaths("/home/user/.mozilla/firefox");
-      
-      expect(paths.some(p => p.includes("k2345678.default"))).toBe(true);
-      expect(paths.some(p => p.includes("random.profile"))).toBe(true);
+      const paths = cookieExtractionInternals.findFirefoxCookiePaths(
+        "/home/user/.mozilla/firefox",
+      );
+
+      expect(paths.some((p) => p.includes("k2345678.default"))).toBe(true);
+      expect(paths.some((p) => p.includes("random.profile"))).toBe(true);
     });
   });
 
@@ -179,9 +201,9 @@ Path=/opt/firefox/dev
         "user_session\tuser123",
         "logged_in\tyes",
         "_gh_sess\tsess123",
-        "other_cookie\tvalue123"
+        "other_cookie\tvalue123",
       ].join("\n");
-      
+
       const header = cookieExtractionInternals.buildCookieHeader(raw);
       expect(header).toContain("user_session=user123");
       expect(header).toContain("logged_in=yes");
@@ -195,10 +217,9 @@ Path=/opt/firefox/dev
     });
 
     it("handles tab in value correctly", () => {
-      const raw = [
-        "user_session\tvalid",
-        "complex_cookie\tpart1\tpart2"
-      ].join("\n");
+      const raw = ["user_session\tvalid", "complex_cookie\tpart1\tpart2"].join(
+        "\n",
+      );
       const header = cookieExtractionInternals.buildCookieHeader(raw);
       expect(header).toContain("complex_cookie=part1\tpart2");
     });
@@ -209,141 +230,153 @@ Path=/opt/firefox/dev
       const source = {
         browser: "chrome" as const,
         path: "/path/to/cookies",
-        hostColumn: "host_key" as const
+        hostColumn: "host_key" as const,
       };
 
       vi.mocked(fs.copyFileSync).mockImplementation(() => {});
       vi.mocked(fs.unlinkSync).mockImplementation(() => {});
       // Allow unlinkSync to be called by mocking existsSync to return true for temp files too
-      vi.mocked(fs.existsSync).mockImplementation((p) => {
-          return true;
-      });
-      
-      // Update mock implementation for this test
-      execFileMock.mockImplementation((file, args, cb) => {
-         const callback = typeof args === 'function' ? args : cb;
-         callback(null, { stdout: "user_session\tvalid_session\n" });
-         return {} as any;
+      vi.mocked(fs.existsSync).mockImplementation((_p) => {
+        return true;
       });
 
-      const result = await cookieExtractionInternals.extractCookiesFromDatabase(source);
+      // Update mock implementation for this test
+      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
+        const callback = typeof args === "function" ? args : cb;
+        callback?.(null, { stdout: "user_session\tvalid_session\n" });
+        return {} as Record<string, unknown>;
+      });
+
+      const result =
+        await cookieExtractionInternals.extractCookiesFromDatabase(source);
       expect(result).toBe("user_session=valid_session");
       expect(fs.copyFileSync).toHaveBeenCalled();
       expect(fs.unlinkSync).toHaveBeenCalled();
-      expect(execFileMock).toHaveBeenCalledWith("sqlite3", expect.arrayContaining([
+      expect(execFileMock).toHaveBeenCalledWith(
+        "sqlite3",
+        expect.arrayContaining([
           expect.stringContaining("gh-attach-chrome-"),
-          expect.stringContaining("SELECT name, value")
-      ]), expect.any(Function));
+          expect.stringContaining("SELECT name, value"),
+        ]),
+        expect.any(Function),
+      );
     });
 
     it("throws UploadError on failure", async () => {
-        const source = {
-            browser: "chrome" as const,
-            path: "/path/to/cookies",
-            hostColumn: "host_key" as const
-        };
+      const source = {
+        browser: "chrome" as const,
+        path: "/path/to/cookies",
+        hostColumn: "host_key" as const,
+      };
 
-        execFileMock.mockImplementation((file, args, cb) => {
-            const callback = typeof args === 'function' ? args : cb;
-            callback(new Error("sqlite error"));
-            return {} as any;
-        });
-        
-        vi.mocked(fs.copyFileSync).mockImplementation(() => {});
-        vi.mocked(fs.unlinkSync).mockImplementation(() => {});
-        vi.mocked(fs.existsSync).mockReturnValue(true);
+      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
+        const callback = typeof args === "function" ? args : cb;
+        callback?.(new Error("sqlite error"));
+        return {} as Record<string, unknown>;
+      });
 
-        await expect(cookieExtractionInternals.extractCookiesFromDatabase(source))
-            .rejects.toThrow(UploadError);
-        
-        expect(fs.unlinkSync).toHaveBeenCalled();
+      vi.mocked(fs.copyFileSync).mockImplementation(() => {});
+      vi.mocked(fs.unlinkSync).mockImplementation(() => {});
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      await expect(
+        cookieExtractionInternals.extractCookiesFromDatabase(source),
+      ).rejects.toThrow(UploadError);
+
+      expect(fs.unlinkSync).toHaveBeenCalled();
     });
   });
 
   describe("Strategy Integration", () => {
     it("isAvailable returns true when cookies are found", async () => {
-        // Must match what findCookieSources looks for
-        setPlatform("linux"); 
-        
-        vi.mocked(fs.existsSync).mockImplementation((p) => {
-            const pathStr = p as string;
-            // Return true for chrome paths AND temp files (which contain gh-attach-)
-            return pathStr.includes(".config/google-chrome") || 
-                   pathStr.includes("Default/Cookies") || 
-                   pathStr.includes("gh-attach-");
-        });
-        
-        execFileMock.mockImplementation((file, args, cb) => {
-            const callback = typeof args === 'function' ? args : cb;
-            // Only return cookies for chrome to simulate finding it
-            const argsList = args as string[];
-            if (argsList && argsList[3] && argsList[3].includes("host_key")) {
-                 callback(null, { stdout: "user_session\tvalid_session\n" });
-            } else {
-                 callback(new Error("No cookies"));
-            }
-            return {} as any;
-         });
+      // Must match what findCookieSources looks for
+      setPlatform("linux");
 
-        vi.mocked(fs.copyFileSync).mockImplementation(() => {});
-        vi.mocked(fs.unlinkSync).mockImplementation(() => {});
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const pathStr = p as string;
+        // Return true for chrome paths AND temp files (which contain gh-attach-)
+        return (
+          pathStr.includes(".config/google-chrome") ||
+          pathStr.includes("Default/Cookies") ||
+          pathStr.includes("gh-attach-")
+        );
+      });
 
-        const strategy = createCookieExtractionStrategy();
-        expect(await strategy.isAvailable()).toBe(true);
+      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
+        const callback = typeof args === "function" ? args : cb;
+        // Only return cookies for chrome to simulate finding it
+        const argsList = args as string[];
+        if (argsList && argsList[3] && argsList[3].includes("host_key")) {
+          callback?.(null, { stdout: "user_session\tvalid_session\n" });
+        } else {
+          callback?.(new Error("No cookies"));
+        }
+        return {} as Record<string, unknown>;
+      });
+
+      vi.mocked(fs.copyFileSync).mockImplementation(() => {});
+      vi.mocked(fs.unlinkSync).mockImplementation(() => {});
+
+      const strategy = createCookieExtractionStrategy();
+      expect(await strategy.isAvailable()).toBe(true);
     });
 
     it("upload throws UploadError if cookies null but errors exist", async () => {
-        vi.mocked(fs.existsSync).mockImplementation((p) => {
-            return (p as string).includes(".config/google-chrome");
-        });
-        
-        execFileMock.mockImplementation((file, args, cb) => {
-            const callback = typeof args === 'function' ? args : cb;
-            callback(new Error("Database locked"));
-            return {} as any;
-        });
-        
-        vi.mocked(fs.copyFileSync).mockImplementation(() => {});
-        vi.mocked(fs.unlinkSync).mockImplementation(() => {});
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        return (p as string).includes(".config/google-chrome");
+      });
 
-        const strategy = createCookieExtractionStrategy();
-        await expect(strategy.upload("file.png", mockTarget))
-            .rejects.toThrow(UploadError);
+      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
+        const callback = typeof args === "function" ? args : cb;
+        callback?.(new Error("Database locked"));
+        return {} as Record<string, unknown>;
+      });
+
+      vi.mocked(fs.copyFileSync).mockImplementation(() => {});
+      vi.mocked(fs.unlinkSync).mockImplementation(() => {});
+
+      const strategy = createCookieExtractionStrategy();
+      await expect(strategy.upload("file.png", mockTarget)).rejects.toThrow(
+        UploadError,
+      );
     });
 
     it("upload succeeds when cookies are found", async () => {
-        setPlatform("linux");
-        vi.mocked(fs.existsSync).mockImplementation((p) => {
-            const pathStr = p as string;
-            // Return true for chrome paths AND temp files (which contain gh-attach-)
-            return pathStr.includes(".config/google-chrome") || 
-                   pathStr.includes("Default/Cookies") || 
-                   pathStr.includes("gh-attach-");
-        });
-        
-        execFileMock.mockImplementation((file, args, cb) => {
-            const callback = typeof args === 'function' ? args : cb;
-            const argsList = args as string[];
-            if (argsList && argsList[3] && argsList[3].includes("host_key")) {
-                 callback(null, { stdout: "user_session\tvalid_session\n" });
-            } else {
-                 callback(new Error("No cookies"));
-            }
-            return {} as any;
-         });
+      setPlatform("linux");
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const pathStr = p as string;
+        // Return true for chrome paths AND temp files (which contain gh-attach-)
+        return (
+          pathStr.includes(".config/google-chrome") ||
+          pathStr.includes("Default/Cookies") ||
+          pathStr.includes("gh-attach-")
+        );
+      });
 
-         const strategy = createCookieExtractionStrategy();
-         const result = await strategy.upload("file.png", mockTarget);
-         
-         expect(result).toBe("https://github.com/test/asset");
-         expect(mockBrowserSessionUpload).toHaveBeenCalled();
+      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
+        const callback = typeof args === "function" ? args : cb;
+        const argsList = args as string[];
+        if (argsList && argsList[3] && argsList[3].includes("host_key")) {
+          callback?.(null, { stdout: "user_session\tvalid_session\n" });
+        } else {
+          callback?.(new Error("No cookies"));
+        }
+        return {} as Record<string, unknown>;
+      });
+
+      const strategy = createCookieExtractionStrategy();
+      const result = await strategy.upload("file.png", mockTarget);
+
+      expect(result).toBe("https://github.com/test/asset");
+      expect(mockBrowserSessionUpload).toHaveBeenCalled();
     });
     it("upload throws AuthenticationError if no cookies found and no errors", async () => {
-        vi.mocked(fs.existsSync).mockReturnValue(false);
-        
-        const strategy = createCookieExtractionStrategy();
-        await expect(strategy.upload("file.png", mockTarget))
-            .rejects.toThrow(AuthenticationError);
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      const strategy = createCookieExtractionStrategy();
+      await expect(strategy.upload("file.png", mockTarget)).rejects.toThrow(
+        AuthenticationError,
+      );
     });
   });
 });

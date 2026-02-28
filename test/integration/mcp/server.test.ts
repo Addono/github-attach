@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { randomUUID } from "crypto";
 import { join } from "path";
-import { writeFileSync, unlinkSync, rmSync, mkdirSync } from "fs";
+import { writeFileSync, unlinkSync, rmSync } from "fs";
 import { tmpdir } from "os";
 
 // Mock the MCP SDK - these are complex external dependencies
@@ -127,7 +127,7 @@ describe("MCP Server Integration", () => {
 
     it("should mock Server class for stdio initialization", () => {
       // Verify mocked Server exists and can be instantiated
-      const server = new (Server as any)({
+      const server = new (Server as unknown as new (opts: Record<string, string>) => Record<string, unknown>)({
         name: "test",
         version: "1.0.0",
       });

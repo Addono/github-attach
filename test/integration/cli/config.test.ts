@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { unlinkSync, mkdirSync, existsSync, readFileSync } from "fs";
+import { unlinkSync, existsSync, readFileSync, readdirSync, statSync, rmdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { configCommand } from "../../../src/cli/commands/config.js";
@@ -23,17 +23,16 @@ describe("configCommand integration tests", () => {
       }
       if (existsSync(testConfigDir)) {
         const rmDir = (dir: string) => {
-          const fs = require("fs");
-          const files = fs.readdirSync(dir);
+          const files = readdirSync(dir);
           for (const file of files) {
-            const path = join(dir, file);
-            if (fs.statSync(path).isDirectory()) {
-              rmDir(path);
+            const filePath = join(dir, file);
+            if (statSync(filePath).isDirectory()) {
+              rmDir(filePath);
             } else {
-              fs.unlinkSync(path);
+              unlinkSync(filePath);
             }
           }
-          fs.rmdirSync(dir);
+          rmdirSync(dir);
         };
         rmDir(testConfigDir);
       }
@@ -145,7 +144,7 @@ describe("configCommand integration tests", () => {
   it("should persist configuration across calls", async () => {
     await configCommand("set", "persistent-key", "persistent-value");
 
-    const configFile = process.env.GH_ATTACH_CONFIG!;
+    const configFile = process.env.GH_ATTACH_CONFIG ?? "";
     expect(existsSync(configFile)).toBe(true);
 
     const content = readFileSync(configFile, "utf-8");
@@ -154,7 +153,7 @@ describe("configCommand integration tests", () => {
   });
 
   it("should create config directory if it doesn't exist", async () => {
-    const configFile = process.env.GH_ATTACH_CONFIG!;
+    const configFile = process.env.GH_ATTACH_CONFIG ?? "";
     const configDir = configFile.substring(0, configFile.lastIndexOf("/"));
 
     await configCommand("set", "new-key", "new-value");

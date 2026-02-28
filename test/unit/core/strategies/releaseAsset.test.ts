@@ -7,12 +7,12 @@ import {
 import type { UploadTarget } from "../../../../src/core/types.js";
 
 // Create a shared mock object that will be reused
-let mockOctokitInstance: any;
+let mockOctokitInstance: Record<string, unknown>;
 
 // Mock the Octokit module
 vi.mock("@octokit/rest", () => {
   return {
-    Octokit: vi.fn(function (this: any) {
+    Octokit: vi.fn(function (this: Record<string, unknown>) {
       if (!mockOctokitInstance) {
         mockOctokitInstance = {
           rest: {
@@ -40,7 +40,6 @@ vi.mock("fs", () => ({
   },
 }));
 
-import { Octokit } from "@octokit/rest";
 
 const mockTarget: UploadTarget = {
   owner: "testowner",
@@ -146,8 +145,7 @@ describe("Release Asset Strategy", () => {
         browser_download_url: "https://github.com/releases/download/test.png",
       };
 
-      const err404 = new Error("404 Not Found");
-      (err404 as any).status = 404;
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
       mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err404);
       mockOctokitInstance.rest.repos.createRelease.mockResolvedValue({
         data: mockNewRelease,
@@ -216,8 +214,7 @@ describe("Release Asset Strategy", () => {
       const strategy = createReleaseAssetStrategy("limited-token");
       const mockFilePath = "/tmp/test.png";
 
-      const err404 = new Error("404 Not Found");
-      (err404 as any).status = 404;
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
       mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err404);
       mockOctokitInstance.rest.repos.createRelease.mockRejectedValue(
         new Error("403 Forbidden - insufficient permissions"),
@@ -232,8 +229,7 @@ describe("Release Asset Strategy", () => {
       const strategy = createReleaseAssetStrategy("invalid-token");
       const mockFilePath = "/tmp/test.png";
 
-      const err403 = new Error("403 Forbidden");
-      (err403 as any).status = 403;
+      const err403 = Object.assign(new Error("403 Forbidden"), { status: 403 });
       mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err403);
 
       await expect(strategy.upload(mockFilePath, mockTarget)).rejects.toThrow(

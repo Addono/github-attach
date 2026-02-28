@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { unlinkSync, existsSync } from "fs";
+import { unlinkSync, existsSync, readdirSync, statSync, rmdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { loginCommand } from "../../../src/cli/commands/login.js";
@@ -28,17 +28,16 @@ describe("loginCommand integration tests", () => {
       }
       if (existsSync(testStateDir)) {
         const rmDir = (dir: string) => {
-          const fs = require("fs");
-          const files = fs.readdirSync(dir);
+          const files = readdirSync(dir);
           for (const file of files) {
-            const path = join(dir, file);
-            if (fs.statSync(path).isDirectory()) {
-              rmDir(path);
+            const filePath = join(dir, file);
+            if (statSync(filePath).isDirectory()) {
+              rmDir(filePath);
             } else {
-              fs.unlinkSync(path);
+              unlinkSync(filePath);
             }
           }
-          fs.rmdirSync(dir);
+          rmdirSync(dir);
         };
         rmDir(testStateDir);
       }
@@ -189,11 +188,10 @@ describe("loginCommand integration tests", () => {
       expires: Date.now() + 86400000,
     });
 
-    const stateFile = process.env.GH_ATTACH_STATE_PATH!;
+    const stateFile = process.env.GH_ATTACH_STATE_PATH ?? "";
     expect(existsSync(stateFile)).toBe(true);
 
-    const fs = require("fs");
-    const content = fs.readFileSync(stateFile, "utf-8");
+    const content = readFileSync(stateFile, "utf-8");
     const session = JSON.parse(content);
     expect(session.username).toBe("saveduser");
   });
@@ -203,7 +201,7 @@ describe("loginCommand integration tests", () => {
       username: "newuser",
     });
 
-    const stateFile = process.env.GH_ATTACH_STATE_PATH!;
+    const stateFile = process.env.GH_ATTACH_STATE_PATH ?? "";
     const stateDir = stateFile.substring(0, stateFile.lastIndexOf("/"));
 
     expect(existsSync(stateDir)).toBe(true);

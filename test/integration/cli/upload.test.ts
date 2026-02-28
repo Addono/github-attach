@@ -1,17 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { spawnSync } from "child_process";
-import { writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { writeFileSync, unlinkSync, mkdirSync, readdirSync, statSync, rmdirSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { uploadCommand } from "../../../src/cli/commands/upload.js";
 import { saveSession } from "../../../src/core/session.js";
-import {
-  AuthenticationError,
-  ValidationError,
-  UploadError,
-} from "../../../src/core/types.js";
 
-const CLI_SOURCE_PATH = resolve(import.meta.dirname, "../../../src/cli/index.ts");
+const CLI_SOURCE_PATH = resolve(
+  import.meta.dirname,
+  "../../../src/cli/index.ts",
+);
 
 describe("uploadCommand integration tests", () => {
   let testDir: string;
@@ -46,16 +44,16 @@ describe("uploadCommand integration tests", () => {
     }
     try {
       const rmDir = (dir: string) => {
-        const files = require("fs").readdirSync(dir);
+        const files = readdirSync(dir);
         for (const file of files) {
-          const path = join(dir, file);
-          if (require("fs").statSync(path).isDirectory()) {
-            rmDir(path);
+          const filePath = join(dir, file);
+          if (statSync(filePath).isDirectory()) {
+            rmDir(filePath);
           } else {
-            unlinkSync(path);
+            unlinkSync(filePath);
           }
         }
-        require("fs").rmdirSync(dir);
+        rmdirSync(dir);
       };
       rmDir(testDir);
     } catch {
@@ -164,13 +162,22 @@ describe("uploadCommand integration tests", () => {
     );
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("--filename is required when using --stdin");
+    expect(result.stderr).toContain(
+      "--filename is required when using --stdin",
+    );
   });
 
   it("should require a file argument when stdin mode is disabled", () => {
     const result = spawnSync(
       "node",
-      ["--import", "tsx", CLI_SOURCE_PATH, "upload", "--target", "owner/repo#42"],
+      [
+        "--import",
+        "tsx",
+        CLI_SOURCE_PATH,
+        "upload",
+        "--target",
+        "owner/repo#42",
+      ],
       {
         encoding: "utf8",
         cwd: resolve(import.meta.dirname, "../../.."),

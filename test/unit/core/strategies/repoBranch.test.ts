@@ -2,17 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createRepoBranchStrategy } from "../../../../src/core/strategies/repoBranch.js";
 import {
   AuthenticationError,
-  UploadError,
 } from "../../../../src/core/types.js";
 import type { UploadTarget } from "../../../../src/core/types.js";
 
 // Create a shared mock object that will be reused
-let mockOctokitInstance: any;
+let mockOctokitInstance: Record<string, unknown>;
 
 // Mock the Octokit module
 vi.mock("@octokit/rest", () => {
   return {
-    Octokit: vi.fn(function (this: any) {
+    Octokit: vi.fn(function (this: Record<string, unknown>) {
       if (!mockOctokitInstance) {
         mockOctokitInstance = {
           rest: {
@@ -42,7 +41,6 @@ vi.mock("fs", () => ({
   readFileSync: vi.fn(() => Buffer.from("fake-image-data").toString("base64")),
 }));
 
-import { Octokit } from "@octokit/rest";
 
 const mockTarget: UploadTarget = {
   owner: "testowner",
@@ -141,8 +139,7 @@ describe("Repository Branch Strategy", () => {
       const strategy = createRepoBranchStrategy("valid-token");
       const mockFilePath = "/tmp/test.png";
 
-      const errNotFound = new Error("404 Not Found");
-      (errNotFound as any).status = 404;
+      const errNotFound = Object.assign(new Error("404 Not Found"), { status: 404 });
       mockOctokitInstance.rest.repos.getBranch.mockRejectedValue(errNotFound);
 
       mockOctokitInstance.rest.git.createBlob.mockResolvedValue({
@@ -172,8 +169,7 @@ describe("Repository Branch Strategy", () => {
       const strategy = createRepoBranchStrategy("limited-token");
       const mockFilePath = "/tmp/test.png";
 
-      const err403 = new Error("403 Forbidden");
-      (err403 as any).status = 403;
+      const err403 = Object.assign(new Error("403 Forbidden"), { status: 403 });
       mockOctokitInstance.rest.repos.getBranch.mockRejectedValue(err403);
 
       await expect(strategy.upload(mockFilePath, mockTarget)).rejects.toThrow(

@@ -115,7 +115,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
 
   describe("Release Asset Strategy", () => {
     it("should upload an image and return accessible URL", async () => {
-      const strategy = createReleaseAssetStrategy(GITHUB_TOKEN!);
+      const strategy = createReleaseAssetStrategy(GITHUB_TOKEN ?? "");
 
       // Verify strategy is available
       const available = await strategy.isAvailable();
@@ -177,7 +177,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
     });
 
     it("should handle filename collisions", async () => {
-      const strategy = createReleaseAssetStrategy(GITHUB_TOKEN!);
+      const strategy = createReleaseAssetStrategy(GITHUB_TOKEN ?? "");
 
       // Upload twice
       const result1 = await strategy.upload(TEST_IMAGE_PATH, target);
@@ -212,7 +212,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
 
   describe("Repository Branch Strategy", () => {
     it("should upload an image and return accessible raw URL", async () => {
-      const strategy = createRepoBranchStrategy(GITHUB_TOKEN!);
+      const strategy = createRepoBranchStrategy(GITHUB_TOKEN ?? "");
 
       // Verify strategy is available
       const available = await strategy.isAvailable();
@@ -253,7 +253,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
     });
 
     it("should commit to existing branch", async () => {
-      const strategy = createRepoBranchStrategy(GITHUB_TOKEN!);
+      const strategy = createRepoBranchStrategy(GITHUB_TOKEN ?? "");
 
       // Upload twice
       const result1 = await strategy.upload(TEST_IMAGE_PATH, target);
