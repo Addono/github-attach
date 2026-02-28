@@ -1,13 +1,11 @@
 #!/bin/sh
 set -e
 
-# Get the directory of this script
-DIR="$(cd "$(dirname "$0")" && pwd)"
+DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
-# If dist/cli.js exists (installed from source/gh extension install), run it with node
-if [ -f "$DIR/dist/cli.js" ]; then
-  exec node "$DIR/dist/cli.js" "$@"
-else
-  echo "Error: dist/cli.js not found. Please build the project first."
-  exit 1
+if [ -x "$DIR/gh-attach" ]; then
+  exec "$DIR/gh-attach" "$@"
 fi
+
+echo "Error: gh-attach entrypoint not found." >&2
+exit 1

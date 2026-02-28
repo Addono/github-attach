@@ -1,0 +1,81 @@
+#!/bin/sh
+set -e
+
+DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+OS="$(uname -s 2>/dev/null || echo unknown)"
+ARCH="$(uname -m 2>/dev/null || echo unknown)"
+
+case "$OS" in
+  Linux*) PLATFORM="linux" ;;
+  Darwin*) PLATFORM="macos" ;;
+  MINGW*|MSYS*|CYGWIN*) PLATFORM="win" ;;
+  *) PLATFORM="unknown" ;;
+esac
+
+case "$ARCH" in
+  x86_64|amd64) CPU="x64" ;;
+  arm64|aarch64) CPU="arm64" ;;
+  *) CPU="unknown" ;;
+esac
+
+ASSET=""
+case "$PLATFORM/$CPU" in
+  linux/x64) ASSET="gh-attach-linux-x64" ;;
+  macos/x64) ASSET="gh-attach-macos-x64" ;;
+  macos/arm64) ASSET="gh-attach-macos-arm64" ;;
+  win/x64) ASSET="gh-attach-win-x64.exe" ;;
+esac
+
+BIN_DIR="$DIR/bin"
+
+if [ -n "$ASSET" ] && [ -x "$BIN_DIR/$ASSET" ]; then
+  exec "$BIN_DIR/$ASSET" "$@"
+fi
+
+# Developer fallback: allow running from a built working tree.
+if [ -f "$DIR/dist/cli.js" ]; then
+  exec node "$DIR/dist/cli.js" "$@"
+fi
+
+if [ -z "$ASSET" ]; then
+  echo "Error: unsupported platform: $OS ($ARCH)" >&2
+  exit 1
+fi
+
+REPO="${GH_REPO:-}"
+
+if [ -z "$REPO" ] && command -v git >/dev/null 2>&1 && [ -d "$DIR/.git" ]; then
+  REMOTE="$(git -C "$DIR" remote get-url origin 2>/dev/null || true)"
+  case "$REMOTE" in
+    git@github.com:*)
+      REPO="$(printf %s "$REMOTE" | sed -E 's#^git@github.com:([^/]+/[^.]+)(\.git)?$#\1#')"
+      ;;
+    https://github.com/*)
+      REPO="$(printf %s "$REMOTE" | sed -E 's#^https://github.com/([^/]+/[^.]+)(\.git)?$#\1#')"
+      ;;
+    ssh://git@github.com/*)
+      REPO="$(printf %s "$REMOTE" | sed -E 's#^ssh://git@github.com/([^/]+/[^.]+)(\.git)?$#\1#')"
+      ;;
+  esac
+fi
+
+if [ -z "$REPO" ]; then
+  echo "Error: could not determine repo for release download." >&2
+  echo "Set GH_REPO=OWNER/REPO (e.g. GH_REPO=owner/gh-attach)." >&2
+  exit 1
+fi
+
+URL="https://github.com/$REPO/releases/latest/download/$ASSET"
+
+mkdir -p "$BIN_DIR"
+
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL "$URL" -o "$BIN_DIR/$ASSET"
+else
+  echo "Error: curl is required to download release binaries." >&2
+  exit 1
+fi
+
+chmod +x "$BIN_DIR/$ASSET" 2>/dev/null || true
+exec "$BIN_DIR/$ASSET" "$@"
