@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/Addono/github-attach/compare/v1.0.0...v1.0.1) (2026-02-28)
+
+
+### Bug Fixes
+
+* make gh-extension entrypoint test cross-platform ([50556ee](https://github.com/Addono/github-attach/commit/50556eee8c86711bfe894dbce0ffbd29288a73d9)), closes [#extension](https://github.com/Addono/github-attach/issues/extension)
+
 # 1.0.0 (2026-02-28)
 
 
