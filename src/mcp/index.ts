@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { writeFileSync, unlinkSync, readFileSync } from "fs";
+import { writeFileSync, unlinkSync, readFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { createServer } from "http";
@@ -306,14 +306,17 @@ async function handleUploadImage(args: {
   strategy?: string;
   format?: "markdown" | "url";
 }): Promise<{ content: TextContent[]; isError?: boolean }> {
+  let tempFilePath: string | undefined;
+
   try {
     let uploadPath = args.filePath;
 
     // If content is provided, decode and write to temp file
     if (args.content && args.filename) {
       const buffer = Buffer.from(args.content, "base64");
-      uploadPath = join(tmpdir(), `gh-attach-${randomUUID()}-${args.filename}`);
-      writeFileSync(uploadPath, buffer);
+      tempFilePath = join(tmpdir(), `gh-attach-${randomUUID()}-${args.filename}`);
+      uploadPath = tempFilePath;
+      writeFileSync(tempFilePath, buffer);
     }
 
     if (!uploadPath) {
@@ -352,11 +355,6 @@ async function handleUploadImage(args: {
     // Upload
     const result = await upload(uploadPath, target, strategies);
 
-    // Clean up temp file if we created one
-    if (args.content) {
-      unlinkSync(uploadPath);
-    }
-
     // Format output
     const format = args.format || "markdown";
     let output: string;
@@ -388,6 +386,10 @@ async function handleUploadImage(args: {
       ],
       isError: true,
     };
+  } finally {
+    if (tempFilePath && existsSync(tempFilePath)) {
+      unlinkSync(tempFilePath);
+    }
   }
 }
 
