@@ -256,7 +256,24 @@ async function startHttpServer(port: number) {
 }
 
 /**
- * Main entry point for the MCP server.
+ * Create and start the MCP server.
+ *
+ * Initializes a Model Context Protocol server with the specified transport mechanism.
+ * The server exposes tools for uploading images to GitHub and managing authentication.
+ *
+ * @param transport Transport type: "stdio" (for embedding in Claude/VSCode) or "http" (for network access)
+ * @param port Optional port for HTTP transport (default: 3000)
+ *
+ * @example
+ * ```typescript
+ * // stdio transport for Claude Desktop
+ * await createMCPServer('stdio');
+ *
+ * // HTTP transport
+ * await createMCPServer('http', 3000);
+ * ```
+ *
+ * @throws Process exit on server initialization failure
  */
 export async function createMCPServer(
   transport: "stdio" | "http" = "stdio",

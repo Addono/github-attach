@@ -10,6 +10,22 @@ permissions:
   contents: read
 
 jobs:
+  commitlint:
+    name: Commit Lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate commits
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to HEAD
+
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
