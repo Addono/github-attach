@@ -51,8 +51,10 @@ describe("gh extension entrypoints", () => {
       const binDir = join(dir, "bin");
       await mkdir(binDir);
 
-      // In CI we run on Linux x64 (amd64), so this should be selected.
-      const mockBin = join(binDir, "gh-attach-linux-amd64");
+      // Determine correct binary name for the current platform
+      const os = process.platform === "darwin" ? "darwin" : "linux";
+      const arch = process.arch === "arm64" ? "arm64" : "amd64";
+      const mockBin = join(binDir, `gh-attach-${os}-${arch}`);
       await writeFile(mockBin, "#!/bin/sh\necho MOCK\n", "utf8");
       await chmod(mockBin, 0o755);
 
