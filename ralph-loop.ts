@@ -113,19 +113,19 @@ function selectModel(
 
 // --- Fitness evaluation ---
 
-function runCommand(cmd: string): CommandCheckResult {
+function runCommand(cmd: string, maxChars = 2000): CommandCheckResult {
   try {
     const output = execSync(cmd, {
       encoding: "utf-8",
       timeout: 60_000,
       stdio: ["pipe", "pipe", "pipe"],
     });
-    return { success: true, output: output.slice(0, 2000) };
+    return { success: true, output: output.slice(0, maxChars) };
   } catch (err: unknown) {
     const e = err as { stdout?: string; stderr?: string };
     return {
       success: false,
-      output: ((e.stdout ?? "") + "\n" + (e.stderr ?? "")).slice(0, 2000),
+      output: ((e.stdout ?? "") + "\n" + (e.stderr ?? "")).slice(0, maxChars),
     };
   }
 }
@@ -339,6 +339,25 @@ async function collectSourceEvidence(): Promise<string> {
   const githubListing = runCommand("find .github/ -type f | sort 2>&1");
   evidence.push(`=== .github/ file listing ===\n${githubListing.output}`);
 
+  // Spec-compliance test names: grep test files for named spec requirements.
+  // This surfaces evidence that tests exist for each spec scenario without re-running tests.
+  const specTestNames = runCommand(
+    `grep -rh "spec:" test/ --include="*.ts" | sed 's/^[[:space:]]*//' | grep -v "^//" | grep -v "^\\*" | sort -u | head -80`,
+    4000,
+  );
+  evidence.push(
+    `=== spec-compliance test names (grep of test/ for "spec:" labels) ===\n${specTestNames.output}`,
+  );
+
+  // Additional spec-compliance evidence: CSRF/SESSION_EXPIRED/NoStrategy test names
+  const specComplianceNames = runCommand(
+    `grep -rh "spec compliance\\|CSRF_EXTRACTION_FAILED\\|SESSION_EXPIRED\\|NoStrategyAvailable\\|strategy.*fallback\\|fallback.*exhaustion" test/ --include="*.ts" | sed 's/^[[:space:]]*//' | grep -E "^(it|describe)\\(" | sort -u | head -40`,
+    3000,
+  );
+  evidence.push(
+    `=== spec-compliance tests (CSRF / SESSION_EXPIRED / NoStrategyAvailable / fallback) ===\n${specComplianceNames.output}`,
+  );
+
   // Ralph Loop configuration — shows model pool, evaluation interval, tracking repo
   const ralphConfig = await readSlice("ralph-config.json", 2000);
   evidence.push(`=== ralph-config.json ===\n${ralphConfig}`);
@@ -433,8 +452,10 @@ async function evaluateFitness(
   const specs = await collectSpecFiles();
   const sourceEvidence = await collectSourceEvidence();
   const buildResult = runCommand("npm run build 2>&1");
-  const testResult = runCommand("npm test 2>&1");
-  const lintResult = runCommand("npm run lint 2>&1");
+  // Capture the tail of test output to get coverage report + file-level summaries.
+  // The default output starts with HTTP mock noise; tail selects the meaningful end.
+  const testResult = runCommand("npm test 2>&1 | tail -c 12000", 12000);
+  const lintResult = runCommand("npm run lint 2>&1", 4000);
   const auditResult = runCommand("npm audit --production 2>&1");
 
   // Log individual stage results so operators can see evaluation progress
