@@ -1,8 +1,6 @@
-import { readFile, writeFile } from "fs/promises";
-import { existsSync, writeFileSync } from "fs";
+import { readFile } from "fs/promises";
+import { existsSync } from "fs";
 import { execSync } from "child_process";
-import { tmpdir } from "os";
-import { join } from "path";
 import {
   CopilotClient,
   approveAll,
@@ -35,6 +33,22 @@ import {
   type CommandCheckResult,
 } from "./src/ralph/ci-gating.ts";
 import { selectModel as selectModelFromPool } from "./src/ralph/modelSelection.ts";
+import {
+  defaultState,
+  loadState,
+  saveState,
+  type ChecklistItem,
+  type Evaluation,
+  type FitnessScores,
+  type RalphState,
+} from "./src/ralph/state.ts";
+import {
+  generateCommentBody,
+  generateIssueBody,
+  ghWithBodyFile,
+  postCiBlockedNotification,
+  postToGitHub,
+} from "./src/ralph/github.ts";
 
 // --- Types ---
 
@@ -54,41 +68,6 @@ interface RalphConfig {
   timeout: number;
 }
 
-interface ChecklistItem {
-  requirement: string;
-  score: number;
-  reasoning: string;
-}
-
-interface FitnessScores {
-  specCompliance: number;
-  testCoverage: number;
-  codeQuality: number;
-  buildHealth: number;
-  aggregate: number;
-  notes: string;
-  checklist: ChecklistItem[];
-}
-
-interface Evaluation {
-  iteration: number;
-  model: string;
-  scores: FitnessScores;
-  timestamp: string;
-}
-
-interface RalphState {
-  currentIteration: number;
-  currentModel: string;
-  trackingIssueNumber: number | null;
-  evaluations: Evaluation[];
-  ciStatus: CiStatus;
-  ciBrokenSince: number | null;
-  ciFixAttempts: number;
-  ciLastFixAttempt: number | null;
-  ciLastBlockedNotification: number | null;
-}
-
 type Mode = "plan" | "build";
 
 // --- State management ---
@@ -100,60 +79,6 @@ const LOG_FILE = "ralph-loop.log";
 async function loadConfig(): Promise<RalphConfig> {
   const raw = await readFile(CONFIG_FILE, "utf-8");
   return JSON.parse(raw) as RalphConfig;
-}
-
-function defaultState(): RalphState {
-  return {
-    currentIteration: 0,
-    currentModel: "",
-    trackingIssueNumber: null,
-    evaluations: [],
-    ciStatus: normalizeCiStatus(undefined),
-    ciBrokenSince: null,
-    ciFixAttempts: 0,
-    ciLastFixAttempt: null,
-    ciLastBlockedNotification: null,
-  };
-}
-
-async function loadState(): Promise<RalphState> {
-  if (existsSync(STATE_FILE)) {
-    const raw = await readFile(STATE_FILE, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<RalphState>;
-    return {
-      currentIteration:
-        typeof parsed.currentIteration === "number"
-          ? parsed.currentIteration
-          : 0,
-      currentModel:
-        typeof parsed.currentModel === "string" ? parsed.currentModel : "",
-      trackingIssueNumber:
-        typeof parsed.trackingIssueNumber === "number"
-          ? parsed.trackingIssueNumber
-          : null,
-      evaluations: Array.isArray(parsed.evaluations)
-        ? (parsed.evaluations as Evaluation[])
-        : [],
-      ciStatus: normalizeCiStatus(parsed.ciStatus),
-      ciBrokenSince:
-        typeof parsed.ciBrokenSince === "number" ? parsed.ciBrokenSince : null,
-      ciFixAttempts:
-        typeof parsed.ciFixAttempts === "number" ? parsed.ciFixAttempts : 0,
-      ciLastFixAttempt:
-        typeof parsed.ciLastFixAttempt === "number"
-          ? parsed.ciLastFixAttempt
-          : null,
-      ciLastBlockedNotification:
-        typeof parsed.ciLastBlockedNotification === "number"
-          ? parsed.ciLastBlockedNotification
-          : null,
-    };
-  }
-  return defaultState();
-}
-
-async function saveState(state: RalphState): Promise<void> {
-  await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
 function log(message: string, level: RalphLogLevel = "INFO"): void {
@@ -444,27 +369,39 @@ async function collectSourceEvidence(): Promise<string> {
   }
 
   // Ralph Loop core — model rotation, session creation, state persistence, GitHub issue reporting
-  // Slice shows selectModel(), createTrackingIssue/postFitnessComment, and loadState/saveState
+  // Slice shows imports and loop entry point using the extracted state/github modules
   const ralphLoopCore = await readSlice("ralph-loop.ts", 4000);
   evidence.push(
     `=== ralph-loop.ts (first 4000 chars — imports, types, state management, model rotation) ===\n${ralphLoopCore}`,
   );
 
-  // Ralph Loop GitHub reporting section — shows issue creation, comment posting, trend chart
+  // State persistence module (src/ralph/state.ts) — loadState, saveState, defaultState
+  const stateModule = await readSlice("src/ralph/state.ts", 3000);
+  evidence.push(
+    `=== src/ralph/state.ts (state persistence — loadState / saveState) ===\n${stateModule}`,
+  );
+
+  // GitHub reporting module (src/ralph/github.ts) — createIssue, postComment, generateBody
+  const githubModule = await readSlice("src/ralph/github.ts", 3000);
+  evidence.push(
+    `=== src/ralph/github.ts (GitHub issue reporting — postToGitHub / generateCommentBody) ===\n${githubModule}`,
+  );
+
+  // Ralph Loop Core session lifecycle module — runBuildSession (spec: Loop execution)
+  const loopModule = await readSlice("src/ralph/loop.ts", 3000);
+  evidence.push(
+    `=== src/ralph/loop.ts (Loop Core — runBuildSession: createSession / sendAndWait / destroy) ===\n${loopModule}`,
+  );
+
+  // CI gating module — deriveCiStatus, generateCiPromptContext, isCiBroken
+  const ciGatingModule = await readSlice("src/ralph/ci-gating.ts", 3000);
+  evidence.push(
+    `=== src/ralph/ci-gating.ts (CI gating — deriveCiStatus / generateCiPromptContext / isCiBroken) ===\n${ciGatingModule}`,
+  );
+
+  // Ralph Loop GitHub reporting section — model rotation and selectModel
   try {
     const fullLoop = await readFile("ralph-loop.ts", "utf-8");
-    const issueReportIdx = fullLoop.indexOf(
-      "// Create tracking issue on first run",
-    );
-    if (issueReportIdx !== -1) {
-      const section = fullLoop.slice(
-        Math.max(0, issueReportIdx - 200),
-        issueReportIdx + 1500,
-      );
-      evidence.push(
-        `=== ralph-loop.ts (GitHub issue reporting section) ===\n${section}`,
-      );
-    }
     const modelSelectIdx = fullLoop.indexOf(
       "// --- Model rotation with stall detection ---",
     );
@@ -472,13 +409,6 @@ async function collectSourceEvidence(): Promise<string> {
       const section = fullLoop.slice(modelSelectIdx, modelSelectIdx + 1000);
       evidence.push(
         `=== ralph-loop.ts (selectModel — model rotation with stall detection) ===\n${section}`,
-      );
-    }
-    const stateIdx = fullLoop.indexOf("async function loadState()");
-    if (stateIdx !== -1) {
-      const section = fullLoop.slice(stateIdx, stateIdx + 1200);
-      evidence.push(
-        `=== ralph-loop.ts (loadState / saveState — state persistence) ===\n${section}`,
       );
     }
   } catch {
@@ -687,117 +617,8 @@ ${auditResult.output}
 }
 
 // --- GitHub Issue reporting ---
-
-function generateTrendChart(evaluations: Evaluation[]): string {
-  if (evaluations.length === 0) return "No evaluations yet.";
-
-  const lines = evaluations.map((e) => {
-    const bar = "█".repeat(Math.round(e.scores.aggregate / 5));
-    const empty = "░".repeat(20 - Math.round(e.scores.aggregate / 5));
-    return `Iter ${String(e.iteration).padStart(3)}: ${bar}${empty} ${e.scores.aggregate}/100 (${e.model})`;
-  });
-
-  return "```\nFitness Trend:\n" + lines.join("\n") + "\n```";
-}
-
-function generateModelComparison(evaluations: Evaluation[]): string {
-  const modelScores: Record<string, number[]> = {};
-  for (const e of evaluations) {
-    if (!modelScores[e.model]) modelScores[e.model] = [];
-    modelScores[e.model]!.push(e.scores.aggregate);
-  }
-
-  const rows = Object.entries(modelScores).map(([model, scores]) => {
-    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-    return `| ${model} | ${scores.length} | ${avg}/100 |`;
-  });
-
-  return (
-    "| Model | Evals | Avg Score |\n|-------|-------|-----------|\n" +
-    rows.join("\n")
-  );
-}
-
-function generateIssueBody(evaluations: Evaluation[]): string {
-  return `# Ralph Loop Fitness Tracking
-
-This issue tracks the fitness of the \`gh-attach\` implementation across Ralph Loop iterations.
-Each comment represents a fitness evaluation at a specific iteration.
-
-## Trend
-
-${generateTrendChart(evaluations)}
-
-## Evaluation History
-
-| Iter | Model | Spec | Tests | Quality | Build | Aggregate |
-|------|-------|------|-------|---------|-------|-----------|
-${evaluations.map((e) => `| ${e.iteration} | ${e.model} | ${e.scores.specCompliance} | ${e.scores.testCoverage} | ${e.scores.codeQuality} | ${e.scores.buildHealth} | **${e.scores.aggregate}** |`).join("\n")}
-
-## Model Comparison
-
-${generateModelComparison(evaluations)}
-
----
-*Auto-generated by ralph-loop.ts*`;
-}
-
-function generateCommentBody(
-  iteration: number,
-  model: string,
-  scores: FitnessScores,
-  ciStatus: CiStatus,
-): string {
-  // Sort checklist ascending by score so regressions surface first
-  const sortedChecklist = [...(scores.checklist ?? [])].sort(
-    (a, b) => a.score - b.score,
-  );
-
-  const checklistRows = sortedChecklist
-    .map(
-      (item) =>
-        `| ${item.requirement} | ${item.score}/100 | ${item.reasoning.replace(/\|/g, "\\|")} |`,
-    )
-    .join("\n");
-
-  const accordion =
-    sortedChecklist.length > 0
-      ? `<details>\n<summary>📋 Detailed Checklist Scoring (${sortedChecklist.length} items)</summary>\n\n| Requirement | Score | Reasoning |\n|-------------|-------|-----------|\n${checklistRows}\n\n</details>`
-      : "_No checklist data available for this evaluation._";
-
-  return `## Fitness Evaluation — Iteration ${iteration} — ${model}
-
-> **Aggregate: ${scores.aggregate}/100** — ${scores.notes}
-
-| Dimension | Score |
-|-----------|-------|
-| Spec Compliance | ${scores.specCompliance}/100 |
-| Test Coverage | ${scores.testCoverage}/100 |
-| Code Quality | ${scores.codeQuality}/100 |
-| Build Health | ${scores.buildHealth}/100 |
-| **Aggregate** | **${scores.aggregate}/100** |
-
-**Model**: ${model}
-**CI**: ${generateCiCommentSummary(ciStatus)}
-
-${accordion}
-
----
-*Auto-generated by ralph-loop.ts at ${new Date().toISOString()}*`;
-}
-
-// Write body to a temp file and pass via --body-file to avoid shell escaping newlines
-const BODY_TMP = join(tmpdir(), "ralph-gh-body.md");
-
-function ghWithBodyFile(cmd: string, body: string, retry = false): void {
-  writeFileSync(BODY_TMP, body, "utf-8");
-  const fullCmd = `${cmd} --body-file ${JSON.stringify(BODY_TMP)}`;
-  if (retry) {
-    ghExecWithRetry(fullCmd);
-  } else {
-    execSync(fullCmd, { encoding: "utf-8", timeout: 30_000 });
-  }
-}
+// Reporting functions are implemented in src/ralph/github.ts (generateIssueBody,
+// generateCommentBody, postToGitHub, postCiBlockedNotification) and imported above.
 
 function tryGitPush(): void {
   try {
@@ -805,113 +626,6 @@ function tryGitPush(): void {
     log("Pushed to remote", "INFO");
   } catch (err) {
     log(`Git push skipped/failed (non-fatal): ${err}`, "WARN");
-  }
-}
-
-function ghExecWithRetry(cmd: string, maxAttempts = 3, delayMs = 2000): void {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      execSync(cmd, { encoding: "utf-8", timeout: 30_000 });
-      return;
-    } catch (err) {
-      if (attempt === maxAttempts) throw err;
-      log(
-        `gh command failed (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms…`,
-        "WARN",
-      );
-      // Synchronous sleep via a busy-wait — acceptable for a cli tool
-      const end = Date.now() + delayMs;
-      while (Date.now() < end) {
-        /* spin */
-      }
-    }
-  }
-}
-
-async function postToGitHub(
-  state: RalphState,
-  config: RalphConfig,
-  scores: FitnessScores,
-  iteration: number,
-  model: string,
-): Promise<void> {
-  if (!config.trackingRepo) {
-    log("No trackingRepo configured, skipping GitHub posting", "WARN");
-    return;
-  }
-
-  try {
-    // Create tracking issue on first run
-    if (!state.trackingIssueNumber) {
-      const result = execSync(
-        `gh issue create --repo "${config.trackingRepo}" ` +
-          `--title "[Ralph Loop] Fitness Tracking" ` +
-          `--label "ralph-loop" --label "automated"`,
-        { encoding: "utf-8", timeout: 30_000 },
-      );
-      const match = result.match(/\/issues\/(\d+)/);
-      if (match) {
-        state.trackingIssueNumber = parseInt(match[1]!, 10);
-        log(`Created tracking issue #${state.trackingIssueNumber}`, "GITHUB");
-      }
-    }
-
-    if (state.trackingIssueNumber) {
-      // Post per-evaluation comment (uses --body-file to preserve newlines)
-      const comment = generateCommentBody(
-        iteration,
-        model,
-        scores,
-        state.ciStatus,
-      );
-      ghWithBodyFile(
-        `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
-        comment,
-        true,
-      );
-
-      // Update issue body with rolling trend chart (also via --body-file)
-      const body = generateIssueBody(state.evaluations);
-      ghWithBodyFile(
-        `gh issue edit ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
-        body,
-        true,
-      );
-
-      log(
-        `Posted evaluation comment to issue #${state.trackingIssueNumber} (${scores.checklist.length} checklist items)`,
-        "GITHUB",
-      );
-    }
-  } catch (err) {
-    log(`Failed to post to GitHub: ${err}`, "ERROR");
-  }
-}
-
-async function postCiBlockedNotification(
-  state: RalphState,
-  config: RalphConfig,
-  iteration: number,
-): Promise<void> {
-  if (
-    !config.trackingRepo ||
-    !state.trackingIssueNumber ||
-    !isCiBroken(state.ciStatus) ||
-    state.ciLastBlockedNotification === iteration
-  ) {
-    return;
-  }
-
-  try {
-    const body = generateCiBlockedComment(iteration, state.ciStatus);
-    ghWithBodyFile(
-      `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
-      body,
-      true,
-    );
-    state.ciLastBlockedNotification = iteration;
-  } catch (err) {
-    log(`Failed to post CI blocked notification: ${err}`, "ERROR");
   }
 }
 
@@ -1050,7 +764,7 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
         );
       }
       if (isCiBroken(state.ciStatus)) {
-        await postCiBlockedNotification(state, config, i);
+        await postCiBlockedNotification(state, config, i, log);
       }
 
       const session = await client.createSession({
@@ -1173,7 +887,7 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
           );
         }
 
-        await postToGitHub(state, config, scores, i, state.currentModel);
+        await postToGitHub(state, config, scores, i, state.currentModel, log);
         tryGitPush();
 
         // Rotate model after evaluation (with stall detection)

@@ -46,8 +46,6 @@ export function selectModel(
   currentModel: string,
   logFn?: (msg: string) => void,
 ): string {
-  const allModels = [...config.models, ...config.premiumModels];
-
   // Stall detection: if last stallWindow evals show < stallThreshold improvement, escalate
   if (evaluations.length >= config.stallWindow) {
     const recent = evaluations.slice(-config.stallWindow);
@@ -72,10 +70,11 @@ export function selectModel(
     }
   }
 
-  // Normal rotation — exclude the current model to ensure variety
-  const candidates = allModels.filter((m) => m !== currentModel);
+  // Normal rotation — exclude the current model to ensure variety.
+  // Premium models are reserved for stall escalation only.
+  const candidates = config.models.filter((m) => m !== currentModel);
   if (candidates.length === 0) {
-    const first = allModels[0];
+    const first = config.models[0];
     return first ?? currentModel;
   }
   const picked = candidates[Math.floor(Math.random() * candidates.length)];
