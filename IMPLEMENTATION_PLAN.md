@@ -449,11 +449,11 @@ This plan lists prioritized tasks required to bring the implementation into full
 
 ## 30. Evaluation prompt clarity
 
-- **Task:** Clarify the Ralph Loop fitness evaluation prompt so it no longer encourages placeholder scores of `0/100` — instead the model should replace the examples with computed values and explain each checklist entry with source evidence. **[PENDING]**
+- **Task:** Clarify the Ralph Loop fitness evaluation prompt so it no longer encourages placeholder scores of `0/100` — instead the model should replace the examples with computed values and explain each checklist entry with source evidence. **[COMPLETE]**
   - **Spec:** Ralph-loop/spec.md (Evaluation prompt, scoring card)
   - **Files:** ralph-loop.ts
   - **Tests:** test/unit/ralph/evaluation.test.ts (ensure suspicious payload detection still triggers)
   - **Dependencies:** None
   - **Notes:**
-    - Score-Maximisation Context still reports 0/100 for each dimension because the prompt’s JSON template contains literal `0` values; the evaluator tends to echo those zeros instead of computing actual scores.
-    - Update the prompt text to emphasize that the snippet is a template and each score/checklist item must be filled with real numbers and reasoning derived from the spec, CI output, or source evidence.
+    - Score-Maximisation Context still reported 0/100 because the prompt’s JSON template contained literal `0` values; replaced it with placeholder tokens (`SPEC_SCORE`, etc) and strengthened the instructions so every score and checklist entry must cite actual evidence.
+  - **Validation:** `npm run typecheck`, `npm run lint`, `npm test`, `npm audit --production` (all pass; audit still warns about `--omit=dev` but reports 0 vulnerabilities).

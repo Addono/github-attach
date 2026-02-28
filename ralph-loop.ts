@@ -495,19 +495,24 @@ ${lintResult.output}
 ${auditResult.output}
 
   Respond with ONLY a valid JSON object — no markdown, no code fences, no extra text.
-  Use the structure below and replace each placeholder value (shown as 0) with the numeric score you computed (0-100). Each checklist item must cite evidence from the specs, build/test/lint/audit output, or source files.
-  Do NOT return the template verbatim — the zeros are placeholders only, so compute real scores before responding.
+  Structure (for reference only; replace each placeholder with the numeric value you computed):
   {
-    "specCompliance": 0,
-    "testCoverage": 0,
-    "codeQuality": 0,
-    "buildHealth": 0,
-    "aggregate": 0,
-    "notes": "one sentence",
+    "specCompliance": SPEC_SCORE,
+    "testCoverage": TEST_SCORE,
+    "codeQuality": QUALITY_SCORE,
+    "buildHealth": BUILD_SCORE,
+    "aggregate": AGGREGATE_SCORE,
+    "notes": "Concise sentence summarizing the result (cite the most important context)",
     "checklist": [
-      { "requirement": "...", "score": 0, "reasoning": "..." }
+      {
+        "requirement": "Ralph Loop Core – Loop execution",
+        "score": ITEM_SCORE,
+        "reasoning": "Evidence-backed justification referencing specs, logs, or Source Evidence"
+      }
     ]
-  }`;
+  }
+  Each placeholder above must be replaced with the integer you computed (0-100), and each checklist entry must cite at least one concrete piece of evidence from the specifications, Source Evidence block, or the command outputs above. Do NOT return the template literally; remove the placeholder text entirely and supply numbers derived from your reasoning. Keep each reasoning blurb short (1-3 sentences) and highlight the most relevant evidence for the score.
+`;
 
   const evaluationTimeoutMs = resolveEvaluationTimeoutMs(config.timeout);
   const maxAttempts = 2;
