@@ -236,6 +236,19 @@ This plan lists prioritized tasks required to bring the implementation into full
   - **Dependencies:** Task 16
   - **Notes:**
     - Targets the regression observed at iteration 25 where evaluation timed out and fallback scoring forced `aggregate=0`.
-    - Expanded timeout detection to inspect string errors, `Error` instances, and nested `cause` chains used by SDK-wrapped errors.
-    - Keeps retry behavior behavior-safe while reducing false negatives in timeout detection.
+  - Expanded timeout detection to inspect string errors, `Error` instances, and nested `cause` chains used by SDK-wrapped errors.
+  - Keeps retry behavior behavior-safe while reducing false negatives in timeout detection.
+  - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
+
+## 19. Ralph Loop Evaluation JSON Extraction Resilience
+- **Task:** Harden fitness-evaluation response parsing so valid scoring JSON is recovered from mixed prose/code-fence outputs instead of triggering fallback aggregate scoring. **[COMPLETE]**
+  - **Spec:** Ralph-loop/spec.md (Evaluation JSON schema, Fitness evaluation process), Logging/spec.md (score trajectory continuity)
+  - **Files:** src/ralph/evaluation.ts, ralph-loop.ts
+  - **Tests:** test/unit/ralph/evaluation.test.ts
+  - **Dependencies:** Task 18
+  - **Notes:**
+    - Targets the score-regression pattern where evaluation responses may include extra wrapper text and cause JSON parse misses that force fallback scores (`aggregate=0`).
+    - Added `extractFitnessJsonPayload()` with balanced-brace scanning to find the first valid JSON object containing required fitness score fields, including content embedded in markdown code fences.
+    - Updated `evaluateFitness()` in `ralph-loop.ts` to use the new helper, preserving existing score clamping and checklist normalization.
+    - Added unit coverage for plain JSON, fenced JSON with surrounding text, malformed-leading-object recovery, and null return when no valid payload exists.
     - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.

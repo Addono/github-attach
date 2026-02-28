@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractFitnessJsonPayload,
   isSessionIdleTimeoutError,
   resolveEvaluationTimeoutMs,
 } from "../../../src/ralph/evaluation";
@@ -44,5 +45,44 @@ describe("isSessionIdleTimeoutError", () => {
 
   it("returns false for non-timeout errors", () => {
     expect(isSessionIdleTimeoutError(new Error("Network failure"))).toBe(false);
+  });
+});
+
+describe("extractFitnessJsonPayload", () => {
+  it("parses plain JSON payloads", () => {
+    const raw = JSON.stringify({
+      specCompliance: 80,
+      testCoverage: 85,
+      codeQuality: 90,
+      buildHealth: 95,
+      aggregate: 87,
+      notes: "ok",
+      checklist: [],
+    });
+    expect(extractFitnessJsonPayload(raw)?.aggregate).toBe(87);
+  });
+
+  it("extracts JSON from fenced blocks with surrounding text", () => {
+    const raw = [
+      "Here are your scores:",
+      "```json",
+      '{"specCompliance":70,"testCoverage":60,"codeQuality":65,"buildHealth":75,"aggregate":68,"notes":"x","checklist":[]}',
+      "```",
+      "Done.",
+    ].join("\n");
+    expect(extractFitnessJsonPayload(raw)?.specCompliance).toBe(70);
+  });
+
+  it("skips malformed JSON objects and finds the next valid payload", () => {
+    const raw = [
+      'noise {"not":"fitness"}',
+      '{"specCompliance": bad-json }',
+      '{"specCompliance":88,"testCoverage":89,"codeQuality":90,"buildHealth":91,"aggregate":90,"notes":"good","checklist":[]}',
+    ].join("\n");
+    expect(extractFitnessJsonPayload(raw)?.buildHealth).toBe(91);
+  });
+
+  it("returns null when no valid fitness payload is present", () => {
+    expect(extractFitnessJsonPayload('{"hello":"world"}')).toBeNull();
   });
 });

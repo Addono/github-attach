@@ -9,6 +9,7 @@ import {
   type SessionEvent,
 } from "@github/copilot-sdk";
 import {
+  extractFitnessJsonPayload,
   isSessionIdleTimeoutError,
   resolveEvaluationTimeoutMs,
 } from "./src/ralph/evaluation.ts";
@@ -371,15 +372,10 @@ Respond with ONLY a valid JSON object — no markdown, no code fences, no extra 
         evaluationTimeoutMs,
       );
 
-      // Strip optional markdown code fences then extract outermost JSON object
       const raw = response?.data?.content ?? "";
-      const stripped = raw
-        .replace(/^```(?:json)?\s*/im, "")
-        .replace(/```\s*$/im, "")
-        .trim();
-      const jsonMatch = stripped.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as Partial<FitnessScores>;
+      const parsedPayload = extractFitnessJsonPayload(raw);
+      if (parsedPayload) {
+        const parsed = parsedPayload as Partial<FitnessScores>;
         const clamp = (n: unknown): number =>
           Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
         return {
