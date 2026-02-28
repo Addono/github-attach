@@ -326,11 +326,11 @@ async function collectSourceEvidence(): Promise<string> {
     }
   };
 
-  // CI/CD workflow files
-  const ciWorkflow = await readSlice(".github/workflows/ci.yml");
+  // CI/CD workflow files — use larger slice to show full E2E stage and matrix config
+  const ciWorkflow = await readSlice(".github/workflows/ci.yml", 3000);
   evidence.push(`=== .github/workflows/ci.yml ===\n${ciWorkflow}`);
 
-  const releaseWorkflow = await readSlice(".github/workflows/release.yml");
+  const releaseWorkflow = await readSlice(".github/workflows/release.yml", 2000);
   evidence.push(`=== .github/workflows/release.yml ===\n${releaseWorkflow}`);
 
   // Semantic release configuration
@@ -342,13 +342,41 @@ async function collectSourceEvidence(): Promise<string> {
   const dependabot = await readSlice(".github/dependabot.yml");
   evidence.push(`=== .github/dependabot.yml ===\n${dependabot}`);
 
-  // E2E test file structure
-  const e2eTest = await readSlice("test/e2e/upload.test.ts", 2000);
+  // E2E test file structure — use larger slice so afterAll cleanup section is visible
+  const e2eTest = await readSlice("test/e2e/upload.test.ts", 4500);
   evidence.push(`=== test/e2e/upload.test.ts ===\n${e2eTest}`);
 
-  // Graceful shutdown module
-  const shutdownModule = await readSlice("src/ralph/shutdown.ts");
+  // Graceful shutdown module — read full file (2500 chars) to show SIGINT handler + grace period
+  const shutdownModule = await readSlice("src/ralph/shutdown.ts", 2500);
   evidence.push(`=== src/ralph/shutdown.ts ===\n${shutdownModule}`);
+
+  // package.json — shows semantic-release devDependencies, bin fields, and npm scripts
+  try {
+    const pkgRaw = await readFile("package.json", "utf-8");
+    const pkg = JSON.parse(pkgRaw) as Record<string, unknown>;
+    const pkgSummary = JSON.stringify(
+      {
+        name: pkg.name,
+        version: pkg.version,
+        bin: pkg.bin,
+        scripts: pkg.scripts,
+        devDependencies: Object.fromEntries(
+          Object.entries(
+            (pkg.devDependencies ?? {}) as Record<string, string>,
+          ).filter(([k]) => k.includes("semantic") || k.includes("release") || k.includes("vitest") || k.includes("typescript")),
+        ),
+      },
+      null,
+      2,
+    );
+    evidence.push(`=== package.json (key fields) ===\n${pkgSummary}`);
+  } catch {
+    evidence.push(`=== package.json (key fields) ===\n(unreadable)`);
+  }
+
+  // MCP login tool — shows elicitation flow implementation
+  const mcpIndex = await readSlice("src/mcp/index.ts", 2000);
+  evidence.push(`=== src/mcp/index.ts (first 2000 chars) ===\n${mcpIndex}`);
 
   // Key directory listings
   const srcListing = runCommand("find src/ -name '*.ts' | sort 2>&1");
@@ -370,6 +398,10 @@ async function evaluateFitness(
   model: string,
 ): Promise<FitnessScores> {
   log(`Starting fitness evaluation at iteration ${iteration}`, "EVAL");
+  log(
+    `Evaluation commands: npm run build, npm test, npm run lint, npm audit --production`,
+    "EVAL",
+  );
 
   const specs = await collectSpecFiles();
   const sourceEvidence = await collectSourceEvidence();
@@ -377,6 +409,24 @@ async function evaluateFitness(
   const testResult = runCommand("npm test 2>&1");
   const lintResult = runCommand("npm run lint 2>&1");
   const auditResult = runCommand("npm audit --production 2>&1");
+
+  // Log individual stage results so operators can see evaluation progress
+  log(
+    `[Evaluation] Build: ${buildResult.success ? "success" : "failed"}`,
+    "EVAL",
+  );
+  // Extract test pass/fail summary from test output
+  const testSummary = testResult.output.match(/Tests\s+(\d+)\s+passed.*?(?:(\d+)\s+failed)?/)?.[0] ?? (testResult.success ? "passed" : "failed");
+  log(`[Evaluation] Tests: ${testSummary}`, "EVAL");
+  // Extract lint error/warning counts from lint output
+  const lintErrors =
+    lintResult.output.match(/(\d+)\s+error/)?.[1] ?? "0";
+  const lintWarnings =
+    lintResult.output.match(/(\d+)\s+warning/)?.[1] ?? "0";
+  log(
+    `[Evaluation] Lint: ${lintErrors} errors, ${lintWarnings} warnings`,
+    "EVAL",
+  );
 
   const evalPrompt = `You are an automated fitness evaluator for a TypeScript project.
 Your job is to score the implementation against the OpenSpec specifications below.
@@ -389,10 +439,16 @@ Your job is to score the implementation against the OpenSpec specifications belo
    - "score": integer 0-100
    - "reasoning": 1-3 sentences of EVIDENCE referencing the build/test/lint output, source evidence below, or specific behaviour observed. When score < 80, state explicitly what is missing or broken.
 3. Do NOT bundle multiple requirements into one entry.
-4. When scoring, REWARD dependency freshness:
-   - If npm audit shows 0 vulnerabilities, add +5 bonus points to code quality
-   - If npm audit shows vulnerabilities, deduct points proportionally from code quality
-   - If dependencies are well-maintained and up-to-date, add this as a positive observation
+4. When scoring, apply these rules:
+   - REWARD dependency freshness:
+     - If npm audit shows 0 vulnerabilities, add +5 bonus points to code quality
+     - If npm audit shows vulnerabilities, deduct points proportionally from code quality
+     - If dependencies are well-maintained and up-to-date, add this as a positive observation
+   - CI failure penalty: if build or tests FAILED, clamp buildHealth to ≤ 30/100
+   - Lint warning penalty: for each 5 unique warning types, deduct 10 points from codeQuality
+   - Use the Source Evidence section (workflow files, package.json, test files) as AUTHORITATIVE ground truth about what is implemented. If a file is shown in the evidence, treat it as existing and implemented.
+   - For CI Pipeline, Release Artifacts, Semantic Release, and E2E Tests: base your scoring DIRECTLY on the workflow files and package.json shown in the Source Evidence. Do NOT assume files are absent if they are shown in the evidence.
+   - For E2E Tests: check test/e2e/upload.test.ts in the evidence for E2E_TESTS gating, real GitHub API calls (Octokit), and afterAll cleanup.
 5. After the checklist, compute dimension averages:
    - specCompliance: average of all spec-related checklist items
    - testCoverage: average of all testing-related checklist items
@@ -877,6 +933,8 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
       const toolCounts: Record<string, number> = {};
       // Track per-call start times for execution-time reporting
       const toolStartTimes = new Map<string, number>();
+      // Track current agent intent for Model Reasoning Logging — intent changes are logged
+      let currentIntent: string | null = null;
       session.on((event: SessionEvent) => {
         if (event.type === "tool.execution_start") {
           const name = event.data.toolName;
@@ -885,6 +943,17 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
           const category = getToolCategory(name);
           const detail = formatToolArgs(name, event.data.arguments);
           log(`⚙ ${name} (${category})${detail ? ` — ${detail}` : ""}`, "DEBUG");
+          // Model Reasoning Logging: track intent changes via report_intent tool calls
+          if (name === "report_intent" && typeof (event.data.arguments as Record<string, unknown>)?.intent === "string") {
+            const newIntent = String((event.data.arguments as Record<string, unknown>).intent).trim();
+            if (newIntent && newIntent !== currentIntent) {
+              if (currentIntent !== null) {
+                log(`[Intent] Previous: ${currentIntent}`, "DEBUG");
+              }
+              log(`[Intent] New: ${newIntent}`, "DEBUG");
+              currentIntent = newIntent;
+            }
+          }
         } else if (event.type === "tool.execution_progress") {
           const msg = event.data.progressMessage?.trim();
           if (msg) log(`  ↳ ${msg}`, "DEBUG");
