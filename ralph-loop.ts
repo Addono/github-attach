@@ -91,7 +91,7 @@ function log(message: string): void {
   const entry = `[${new Date().toISOString()}] ${message}\n`;
   process.stdout.write(entry);
   try {
-    execSync(`printf '%s' ${JSON.stringify(entry)} >> ${LOG_FILE}`);
+    execSync(`printf '%b' ${JSON.stringify(entry)} >> ${LOG_FILE}`);
   } catch {
     // Best-effort logging
   }
