@@ -6,17 +6,11 @@
     "gpt-5.1-codex-mini",
     "gpt-5.3-codex",
     "claude-haiku-4.5",
-    "claude-sonnet-4.5",
     "claude-sonnet-4.6",
-    "gemini-3-pro-preview"
+    "gemini-3.1-pro-preview"
   ],
   "premiumModels": [
-    "claude-opus-4.5",
-    "claude-opus-4.6",
-    "gpt-5.1",
-    "gpt-5.2",
-    "gpt-5.1-codex-max",
-    "gpt-5.3-codex"
+    "claude-opus-4.6"
   ],
   "stallWindow": 2,
   "stallThreshold": 5,
