@@ -606,4 +606,32 @@ describe("MCP server handlers", () => {
     expect(response.isError).toBeUndefined();
     expect(response.content[0]?.text).toMatch(/GITHUB_TOKEN/);
   });
+
+  it("login tool handles elicitation decline action", async () => {
+    hoisted.mockServerGetClientCapabilities.mockReturnValue({
+      elicitation: { form: true },
+    });
+    hoisted.mockServerElicitInput.mockResolvedValue({ action: "decline" });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({ params: { name: "login", arguments: {} } });
+
+    expect(response.content[0]?.text).toContain("cancelled");
+  });
+
+  it("login tool handles elicitation with empty token", async () => {
+    hoisted.mockServerGetClientCapabilities.mockReturnValue({
+      elicitation: { form: true },
+    });
+    hoisted.mockServerElicitInput.mockResolvedValue({
+      action: "accept",
+      content: { token: "" },
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({ params: { name: "login", arguments: {} } });
+
+    // Empty token should fall through to static guidance
+    expect(response.content[0]?.text).toMatch(/GITHUB_TOKEN/);
+  });
 });

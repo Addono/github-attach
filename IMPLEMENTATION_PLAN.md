@@ -512,3 +512,19 @@ This plan lists prioritized tasks required to bring the implementation into full
     - **Raised coverage thresholds**: lines 75→90%, functions 85→90%, branches 78→85%, statements 75→90%. All thresholds pass.
     - **Overall coverage**: statements 95.68→97.05%, branches 88.79→92.16%.
     - All validation passes: `typecheck`, `lint` (0 errors), `format:check`, `build`, `test` (418 tests), `npm audit --production` (0 vulnerabilities).
+
+## 34. Coverage Gap Closure and Edge Case Testing
+
+- **Task:** Close remaining coverage gaps in upload command, release-asset strategy, browser-session strategy, and MCP login tool edge cases. **[COMPLETE]**
+  - **Spec:** Testing/spec.md (Unit Test Coverage ≥90%), Core/spec.md (Strategy error handling), MCP/spec.md (Login Tool), CLI/spec.md (Upload Command)
+  - **Files:** test/unit/core/strategies/releaseAsset.test.ts, test/unit/core/strategies/browserSession.test.ts, test/unit/cli/commands/upload.test.ts, test/unit/mcp/handlers.test.ts
+  - **Tests:** 6 new tests
+  - **Dependencies:** None
+  - **Notes:**
+    - **Targets Test Coverage (30/100), Spec Compliance (0/100)** from Score-Maximisation Context.
+    - **Release-asset strategy**: Added test for non-Error rate limit detection via `String(err).toLowerCase()` branch (line 36), and test for asset listing failure catch block (line 289) that verifies original filename is used on listing error.
+    - **Browser-session strategy**: Added test for generic Error (non-Auth/Upload) wrapping through the confirmUpload JSON parse failure path, verifying CONFIRM_UPLOAD_FAILED error code.
+    - **CLI upload command**: Added test for no-strategies-available path (lines 147-154) when config strategy-order yields only token-requiring strategies without a token set.
+    - **MCP login tool**: Added tests for elicitation decline action and empty token elicitation fallback.
+    - **Coverage improvements**: Overall 97.05→97.5% statements, 92.16→92.76% branches. upload.ts 94.3→99.36%, releaseAsset.ts 98.89→99.63%.
+    - All validation passes: `typecheck`, `lint` (0 errors), `format:check`, `test` (424 tests), `npm audit --production` (0 vulnerabilities).

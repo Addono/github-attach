@@ -464,5 +464,57 @@ describe("Release Asset Strategy", () => {
           err instanceof UploadError && err.code === "RELEASE_LOOKUP_FAILED",
       );
     });
+
+    it("detects rate limit from non-Error thrown value with rate limit message", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      // A non-Error object with status 403 and "rate limit" in its string form
+      // This exercises the String(err).toLowerCase() branch in isRateLimitError
+      const nonErrorObj = Object.create(null) as {
+        status: number;
+        message: string;
+        toString: () => string;
+      };
+      nonErrorObj.status = 403;
+      nonErrorObj.message = "rate limit exceeded";
+      nonErrorObj.toString = () => "rate limit exceeded";
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(
+        nonErrorObj,
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RATE_LIMIT_EXCEEDED",
+      );
+    });
+
+    it("continues with original filename when listing assets throws", async () => {
+      const strategy = createReleaseAssetStrategy("valid-token");
+      const mockFilePath = "/tmp/test.png";
+      const mockRelease = { id: 123 };
+      const mockAsset = {
+        name: "test.png",
+        browser_download_url: "https://github.com/releases/download/test.png",
+      };
+
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockResolvedValue({
+        data: mockRelease,
+      });
+      // Listing assets fails — should silently fall through and use original filename
+      mockOctokitInstance.rest.repos.listReleaseAssets.mockRejectedValue(
+        new Error("Network failure"),
+      );
+      mockOctokitInstance.rest.repos.uploadReleaseAsset.mockResolvedValue({
+        data: mockAsset,
+      });
+
+      const result = await strategy.upload(mockFilePath, mockTarget);
+      expect(result.url).toBe(mockAsset.browser_download_url);
+      // Should use original filename since listing failed
+      const uploadCall =
+        mockOctokitInstance.rest.repos.uploadReleaseAsset.mock.calls[0][0];
+      expect(uploadCall.name).toBe("test.png");
+    });
   });
 });

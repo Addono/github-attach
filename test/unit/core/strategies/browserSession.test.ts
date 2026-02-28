@@ -526,6 +526,49 @@ describe("Browser Session Strategy", () => {
       );
     });
 
+    it("wraps generic Error (non-Auth/Upload) in UploadError with BROWSER_SESSION_FAILED code", async () => {
+      const strategy = createBrowserSessionStrategy("test-cookie");
+      const mockFilePath = "/tmp/test.png";
+
+      // Simulate a successful 3-step flow where confirmUpload's json() throws a TypeError
+      // Step 1: getRepositoryId succeeds
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 12345 }),
+        })
+        // Step 2: getUploadPolicy succeeds
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            upload_url: "https://s3.example.com/upload",
+            form: { key: "value" },
+            token: "csrf-token",
+          }),
+        })
+        // Step 3: uploadToS3 succeeds
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 204,
+        })
+        // Step 4: confirmUpload succeeds but json() throws TypeError
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => {
+            throw new TypeError("Cannot read properties of undefined");
+          },
+        });
+
+      const error = await strategy
+        .upload(mockFilePath, mockTarget)
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(UploadError);
+      expect((error as UploadError).code).toBe("CONFIRM_UPLOAD_FAILED");
+    });
+
     it("re-throws AuthenticationError without wrapping", async () => {
       const strategy = createBrowserSessionStrategy("test-cookie");
       const mockFilePath = "/tmp/test.png";

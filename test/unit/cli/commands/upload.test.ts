@@ -248,6 +248,20 @@ describe("uploadCommand unit tests", () => {
     delete process.env.GH_TOKEN;
   });
 
+  it("throws NoStrategyAvailableError when config strategy-order yields no available strategies", async () => {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GH_TOKEN;
+    delete process.env.GH_ATTACH_COOKIES;
+    // Only token-requiring strategies in the order, but no token is set
+    vi.mocked(loadConfig).mockReturnValue({
+      "strategy-order": ["release-asset", "repo-branch"],
+    });
+
+    await expect(
+      uploadCommand(["file.png"], { target: "owner/repo#1" }),
+    ).rejects.toThrow(NoStrategyAvailableError);
+  });
+
   it("handles stdin mode by writing temp file and cleaning up", async () => {
     const fakeStdin = new Readable({ read() {} });
     const origStdin = process.stdin;
