@@ -5,6 +5,10 @@
 
 > Upload images to GitHub issues, PRs, and comments — from the CLI or via MCP.
 
+<p align="center">
+  <img src="demo.svg" alt="gh-attach CLI demo" width="700">
+</p>
+
 GitHub doesn't provide an official API for attaching images to issues and pull requests. `gh-attach` fills this gap with multiple upload strategies, a clean CLI, and an MCP server for AI-powered workflows.
 
 ## Features
@@ -22,7 +26,7 @@ GitHub doesn't provide an official API for attaching images to issues and pull r
 npm install -g gh-attach
 
 # gh extension
-gh extension install owner/gh-attach
+gh extension install Addono/github-attach
 ```
 
 ## Quick Start
@@ -74,6 +78,38 @@ gh-attach mcp --transport stdio
 gh-attach mcp --transport http --port 3000
 ```
 
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "gh-attach": {
+      "command": "gh-attach",
+      "args": ["mcp", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+### VS Code
+
+Add to `.vscode/settings.json`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "gh-attach": {
+        "command": "gh-attach",
+        "args": ["mcp", "--transport", "stdio"]
+      }
+    }
+  }
+}
+```
+
 ## Configuration
 
 ```bash
@@ -105,6 +141,19 @@ Config is stored at `~/.config/gh-attach/config.json` (overridable via `GH_ATTAC
 | `2`  | Authentication error         |
 | `3`  | Validation error (bad input) |
 | `4`  | Network/upload error         |
+
+## Programmatic Usage
+
+```typescript
+import { upload, selectStrategy } from "gh-attach";
+
+const strategy = await selectStrategy({ token: process.env.GITHUB_TOKEN });
+const result = await strategy.upload({
+  file: "./screenshot.png",
+  target: { owner: "octocat", repo: "hello-world", issue: 42 },
+});
+console.log(result.url); // https://github.com/user-attachments/assets/...
+```
 
 ## Development
 
