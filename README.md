@@ -92,6 +92,14 @@ npm run typecheck   # TypeScript strict mode
 npm run lint        # ESLint
 ```
 
+### Branch Protection (Recommended)
+
+For production repositories, configure the following protections on the `main` branch:
+
+- **Require pull request reviews** before merging
+- **Require status checks to pass** (lint, typecheck, build, test)
+- **Require conventional commit messages** via commitlint
+
 ### Ralph Loop (Autonomous Development)
 
 This project uses a [Ralph Loop](https://ghuntley.com/ralph/) for autonomous implementation:
