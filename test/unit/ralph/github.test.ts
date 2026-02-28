@@ -213,6 +213,38 @@ describe("generateCommentBody (spec: Ralph Loop GitHub Issue Reporting — evalu
     expect(body).toContain("gpt-4.1");
   });
 
+  it("includes 'Iterations since last eval' when provided (spec: score posting format)", () => {
+    const body = generateCommentBody(
+      10,
+      "gpt-4.1",
+      makeScores(77),
+      healthyCiStatus,
+      5,
+    );
+    expect(body).toContain("**Iterations since last eval**: 5");
+  });
+
+  it("omits 'Iterations since last eval' when not provided (first evaluation)", () => {
+    const body = generateCommentBody(
+      5,
+      "gpt-4.1",
+      makeScores(77),
+      healthyCiStatus,
+    );
+    expect(body).not.toContain("Iterations since last eval");
+  });
+
+  it("includes Notes field in comment body (spec: score posting format)", () => {
+    const body = generateCommentBody(
+      7,
+      "gpt-4.1",
+      makeScores(77),
+      healthyCiStatus,
+    );
+    expect(body).toContain("**Notes**:");
+    expect(body).toContain("Looking good");
+  });
+
   it("renders checklist items in ascending score order (worst first)", () => {
     const body = generateCommentBody(1, "m", makeScores(70), healthyCiStatus);
     const strategyIdx = body.indexOf("Strategy fallback"); // score 60

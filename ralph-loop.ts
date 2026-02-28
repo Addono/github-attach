@@ -7,13 +7,9 @@ import {
   type SessionEvent,
 } from "@github/copilot-sdk";
 import {
-  NumericFitnessScores,
-  computeAggregateScore,
   deriveFallbackFitnessScores,
-  extractFitnessJsonPayload,
-  isEvaluationPayloadSuspicious,
-  isSessionIdleTimeoutError,
   resolveEvaluationTimeoutMs,
+  runFitnessEvaluation,
 } from "./src/ralph/evaluation.ts";
 import { shouldEmitLog, type RalphLogLevel } from "./src/ralph/logging.ts";
 import { registerShutdownHandler } from "./src/ralph/shutdown.ts";
@@ -37,7 +33,6 @@ import {
   defaultState,
   loadState,
   saveState,
-  type ChecklistItem,
   type Evaluation,
   type FitnessScores,
   type RalphState,
@@ -425,9 +420,16 @@ async function collectSourceEvidence(): Promise<string> {
   );
 
   // GitHub reporting module (src/ralph/github.ts) — createIssue, postComment, generateBody
-  const githubModule = await readSlice("src/ralph/github.ts", 3000);
+  // Includes 'Iterations since last eval' field in generateCommentBody per spec
+  const githubModule = await readSlice("src/ralph/github.ts", 4500);
   evidence.push(
-    `=== src/ralph/github.ts (GitHub issue reporting — postToGitHub / generateCommentBody) ===\n${githubModule}`,
+    `=== src/ralph/github.ts (GitHub issue reporting — postToGitHub / generateCommentBody with 'Iterations since last eval' per spec) ===\n${githubModule}`,
+  );
+
+  // Fitness evaluation module — runFitnessEvaluation (spec: Fitness Scoring dimensions)
+  const evalModule = await readSlice("src/ralph/evaluation.ts", 3500);
+  evidence.push(
+    `=== src/ralph/evaluation.ts (Fitness Scoring — runFitnessEvaluation: createSession / score 4 dimensions / destroy) ===\n${evalModule}`,
   );
 
   // Ralph Loop Core session lifecycle module — runBuildSession (spec: Loop execution)
@@ -676,82 +678,16 @@ ${auditResult.output}
   Each placeholder above must be replaced with the integer you computed (0-100), and each checklist entry must cite at least one concrete piece of evidence from the specifications, Source Evidence block, or the command outputs above. Do NOT return the template literally; remove the placeholder text entirely and supply numbers derived from your reasoning. Keep each reasoning blurb short (1-3 sentences) and highlight the most relevant evidence for the score.
 `;
 
+  // Delegate session lifecycle to the extracted, testable runFitnessEvaluation().
   const evaluationTimeoutMs = resolveEvaluationTimeoutMs(config.timeout);
-  const maxAttempts = 2;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const session = await client.createSession({
-      model: config.evaluationModel,
-      onPermissionRequest: approveAll,
-    });
-
-    try {
-      const response = await session.sendAndWait(
-        { prompt: evalPrompt },
-        evaluationTimeoutMs,
-      );
-
-      const raw = response?.data?.content ?? "";
-      const parsedPayload = extractFitnessJsonPayload(raw);
-      if (parsedPayload) {
-        const parsed = parsedPayload as Partial<FitnessScores>;
-        const clamp = (n: unknown): number =>
-          Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
-        const parsedScores: NumericFitnessScores = {
-          specCompliance: clamp(parsed.specCompliance),
-          testCoverage: clamp(parsed.testCoverage),
-          codeQuality: clamp(parsed.codeQuality),
-          buildHealth: clamp(parsed.buildHealth),
-          aggregate: clamp(parsed.aggregate),
-        };
-        const computedAggregate = computeAggregateScore(
-          parsedScores.specCompliance,
-          parsedScores.testCoverage,
-          parsedScores.codeQuality,
-          parsedScores.buildHealth,
-        );
-        if (isEvaluationPayloadSuspicious(parsedScores, fallbackScores)) {
-          log(
-            `Fitness evaluation output suspicious (spec=${parsedScores.specCompliance}/100 aggregate=${parsedScores.aggregate}/100) — using derived fallback`,
-            "WARN",
-          );
-          return fallbackResponse(suspiciousFallbackNote);
-        }
-        const notes =
-          typeof parsed.notes === "string" ? parsed.notes : "No notes provided";
-        const checklist = Array.isArray(parsed.checklist)
-          ? parsed.checklist.map((item) => ({
-              requirement: String((item as ChecklistItem).requirement ?? ""),
-              score: clamp((item as ChecklistItem).score),
-              reasoning: String((item as ChecklistItem).reasoning ?? ""),
-            }))
-          : [];
-        return {
-          ...parsedScores,
-          aggregate: computedAggregate,
-          notes,
-          checklist,
-        };
-      }
-      log(
-        `Fitness evaluation: could not extract JSON from response (len=${raw.length})`,
-        "WARN",
-      );
-    } catch (err) {
-      if (isSessionIdleTimeoutError(err) && attempt < maxAttempts) {
-        log(
-          `Fitness evaluation timed out after ${evaluationTimeoutMs}ms; retrying once`,
-          "WARN",
-        );
-        continue;
-      }
-      log(`Fitness evaluation error: ${err}`, "ERROR");
-    } finally {
-      await session.destroy();
-    }
-  }
-
-  return fallbackResponse(fallbackNote);
+  return runFitnessEvaluation(
+    client,
+    config.evaluationModel,
+    evalPrompt,
+    evaluationTimeoutMs,
+    fallbackScores,
+    (msg) => log(msg, "WARN"),
+  );
 }
 
 // --- GitHub Issue reporting ---

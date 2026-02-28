@@ -117,6 +117,7 @@ export function generateCommentBody(
   model: string,
   scores: FitnessScores,
   ciStatus: CiStatus,
+  iterationsSinceLastEval?: number,
 ): string {
   const sortedChecklist = [...(scores.checklist ?? [])].sort(
     (a, b) => a.score - b.score,
@@ -134,6 +135,11 @@ export function generateCommentBody(
       ? `<details>\n<summary>📋 Detailed Checklist Scoring (${sortedChecklist.length} items)</summary>\n\n| Requirement | Score | Reasoning |\n|-------------|-------|-----------|\n${checklistRows}\n\n</details>`
       : "_No checklist data available for this evaluation._";
 
+  const sinceLastEvalLine =
+    iterationsSinceLastEval !== undefined
+      ? `\n**Iterations since last eval**: ${iterationsSinceLastEval}`
+      : "";
+
   return `## Fitness Evaluation — Iteration ${iteration} — ${model}
 
 > **Aggregate: ${scores.aggregate}/100** — ${scores.notes}
@@ -146,7 +152,8 @@ export function generateCommentBody(
 | Build Health | ${scores.buildHealth}/100 |
 | **Aggregate** | **${scores.aggregate}/100** |
 
-**Model**: ${model}
+**Model**: ${model}${sinceLastEvalLine}
+**Notes**: ${scores.notes}
 **CI**: ${generateCiCommentSummary(ciStatus)}
 
 ${accordion}
@@ -257,12 +264,22 @@ export async function postToGitHub(
     }
 
     if (state.trackingIssueNumber) {
+      // Compute iterations since the previous evaluation for the comment body.
+      const prevEval =
+        state.evaluations.length > 1
+          ? state.evaluations[state.evaluations.length - 2]
+          : undefined;
+      const iterationsSinceLastEval = prevEval
+        ? iteration - prevEval.iteration
+        : undefined;
+
       // Post per-evaluation comment (uses --body-file to preserve newlines)
       const comment = generateCommentBody(
         iteration,
         model,
         scores,
         state.ciStatus,
+        iterationsSinceLastEval,
       );
       ghWithBodyFile(
         `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,

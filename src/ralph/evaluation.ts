@@ -1,5 +1,8 @@
+import type { CopilotClient } from "@github/copilot-sdk";
+import { approveAll } from "@github/copilot-sdk";
 import { parseLintWarnings } from "./ci-gating";
 import type { CommandCheckResult, LintWarningSummary } from "./ci-gating";
+import type { ChecklistItem, FitnessScores } from "./state";
 
 const DEFAULT_EVALUATION_TIMEOUT_MS = 480_000;
 const MIN_EVALUATION_TIMEOUT_MS = 180_000;
@@ -411,4 +414,114 @@ export function isEvaluationPayloadSuspicious(
     parsed.specCompliance <= SPEC_SUSPICIOUS_THRESHOLD &&
     fallback.specCompliance >= MIN_FALLBACK_SPEC_FOR_OVERRIDE;
   return aggregateMismatch || specMismatch;
+}
+
+/**
+ * Run a fitness evaluation session against the Copilot API.
+ *
+ * This is the core session lifecycle for fitness scoring:
+ * 1. Creates a fresh Copilot session with the evaluation model.
+ * 2. Sends the evaluation prompt and waits for completion.
+ * 3. Parses the structured JSON response for 4 scoring dimensions:
+ *    - specCompliance (0-100): How well code matches specifications
+ *    - testCoverage (0-100): Test presence and passing status
+ *    - codeQuality (0-100): Code cleanliness, error handling, documentation
+ *    - buildHealth (0-100): Build and lint status
+ * 4. Returns parsed scores or falls back to derived CI metrics.
+ * 5. Retries once on session.idle timeout.
+ * 6. Destroys the session unconditionally in a finally block.
+ *
+ * @spec Ralph-loop/spec.md — Fitness Scoring: Fitness evaluation process
+ */
+export async function runFitnessEvaluation(
+  client: CopilotClient,
+  evaluationModel: string,
+  evalPrompt: string,
+  evaluationTimeoutMs: number,
+  fallbackScores: FallbackFitnessScores,
+  logFn: (msg: string) => void = () => undefined,
+): Promise<FitnessScores> {
+  const fallbackNote = "Evaluation failed — using objective CI metrics";
+  const suspiciousFallbackNote =
+    "Evaluation output unreliable — using objective CI metrics";
+  const fallbackResponse = (reason: string): FitnessScores => ({
+    ...fallbackScores,
+    notes: reason,
+    checklist: [],
+  });
+
+  const maxAttempts = 2;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const session = await client.createSession({
+      model: evaluationModel,
+      onPermissionRequest: approveAll,
+    });
+
+    try {
+      const response = await session.sendAndWait(
+        { prompt: evalPrompt },
+        evaluationTimeoutMs,
+      );
+
+      const raw = response?.data?.content ?? "";
+      const parsedPayload = extractFitnessJsonPayload(raw);
+      if (parsedPayload) {
+        const parsed = parsedPayload as Partial<FitnessScores>;
+        const clamp = (n: unknown): number =>
+          Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
+        const parsedScores: NumericFitnessScores = {
+          specCompliance: clamp(parsed.specCompliance),
+          testCoverage: clamp(parsed.testCoverage),
+          codeQuality: clamp(parsed.codeQuality),
+          buildHealth: clamp(parsed.buildHealth),
+          aggregate: clamp(parsed.aggregate),
+        };
+        const computedAggregate = computeAggregateScore(
+          parsedScores.specCompliance,
+          parsedScores.testCoverage,
+          parsedScores.codeQuality,
+          parsedScores.buildHealth,
+        );
+        if (isEvaluationPayloadSuspicious(parsedScores, fallbackScores)) {
+          logFn(
+            `Fitness evaluation output suspicious (spec=${parsedScores.specCompliance}/100 aggregate=${parsedScores.aggregate}/100) — using derived fallback`,
+          );
+          return fallbackResponse(suspiciousFallbackNote);
+        }
+        const notes =
+          typeof parsed.notes === "string" ? parsed.notes : "No notes provided";
+        const checklist = Array.isArray(parsed.checklist)
+          ? parsed.checklist.map((item) => ({
+              requirement: String((item as ChecklistItem).requirement ?? ""),
+              score: clamp((item as ChecklistItem).score),
+              reasoning: String((item as ChecklistItem).reasoning ?? ""),
+            }))
+          : [];
+        return {
+          ...parsedScores,
+          aggregate: computedAggregate,
+          notes,
+          checklist,
+        };
+      }
+      logFn(
+        `Fitness evaluation: could not extract JSON from response (len=${raw.length})`,
+      );
+    } catch (err) {
+      if (isSessionIdleTimeoutError(err) && attempt < maxAttempts) {
+        logFn(
+          `Fitness evaluation timed out after ${evaluationTimeoutMs}ms; retrying once`,
+        );
+        continue;
+      }
+      logFn(`Fitness evaluation error: ${err}`);
+      // Non-timeout errors are not retried — exit the loop.
+      break;
+    } finally {
+      await session.destroy();
+    }
+  }
+
+  return fallbackResponse(fallbackNote);
 }

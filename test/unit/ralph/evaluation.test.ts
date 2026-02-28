@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   clampPercent,
   computeAggregateScore,
@@ -9,12 +9,27 @@ import {
   isSessionIdleTimeoutError,
   parseAuditSeverities,
   resolveEvaluationTimeoutMs,
+  runFitnessEvaluation,
 } from "../../../src/ralph/evaluation";
 import type { CommandCheckResult } from "../../../src/ralph/ci-gating";
 import type {
   FallbackFitnessScores,
   NumericFitnessScores,
 } from "../../../src/ralph/evaluation";
+
+// Mock @github/copilot-sdk for runFitnessEvaluation tests
+const mockSession = {
+  sendAndWait: vi.fn(),
+  destroy: vi.fn(),
+};
+const mockClient = {
+  createSession: vi.fn(),
+};
+vi.mock("@github/copilot-sdk", () => ({
+  approveAll: vi.fn(),
+  CopilotClient: vi.fn(() => mockClient),
+}));
+import type { CopilotClient } from "@github/copilot-sdk";
 
 describe("resolveEvaluationTimeoutMs", () => {
   it("clamps to minimum when timeout is too low", () => {
@@ -325,5 +340,202 @@ describe("isEvaluationPayloadSuspicious", () => {
       aggregate: 30,
     };
     expect(isEvaluationPayloadSuspicious(parsed, fallback)).toBe(false);
+  });
+});
+
+// ── runFitnessEvaluation — spec: Ralph Loop Fitness Scoring ──────────────────
+
+function makeFallback(
+  overrides: Partial<FallbackFitnessScores> = {},
+): FallbackFitnessScores {
+  return {
+    specCompliance: 70,
+    testCoverage: 80,
+    codeQuality: 75,
+    buildHealth: 85,
+    aggregate: 77,
+    ...overrides,
+  };
+}
+
+function makeValidScoreJSON(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    specCompliance: 80,
+    testCoverage: 85,
+    codeQuality: 75,
+    buildHealth: 90,
+    aggregate: 82,
+    notes: "All systems green",
+    checklist: [
+      {
+        requirement: "Error Hierarchy",
+        score: 90,
+        reasoning: "All error classes present",
+      },
+    ],
+    ...overrides,
+  });
+}
+
+describe("runFitnessEvaluation — spec: Ralph Loop Fitness Scoring dimensions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockClient.createSession.mockResolvedValue(mockSession);
+    mockSession.destroy.mockResolvedValue(undefined);
+  });
+
+  it("creates a session with the evaluation model (spec: lightweight model for scoring)", async () => {
+    mockSession.sendAndWait.mockResolvedValue({
+      data: { content: makeValidScoreJSON() },
+    });
+    await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    expect(mockClient.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "claude-haiku-4.5" }),
+    );
+  });
+
+  it("parses specCompliance, testCoverage, codeQuality, buildHealth from JSON response (spec: 4 scoring dimensions)", async () => {
+    mockSession.sendAndWait.mockResolvedValue({
+      data: {
+        content: makeValidScoreJSON({
+          specCompliance: 85,
+          testCoverage: 90,
+          codeQuality: 70,
+          buildHealth: 95,
+        }),
+      },
+    });
+    const result = await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    expect(result.specCompliance).toBe(85);
+    expect(result.testCoverage).toBe(90);
+    expect(result.codeQuality).toBe(70);
+    expect(result.buildHealth).toBe(95);
+  });
+
+  it("computes weighted aggregate score: spec 40%, tests 25%, quality 20%, build 15% (spec: aggregate weighted average)", async () => {
+    mockSession.sendAndWait.mockResolvedValue({
+      data: {
+        content: makeValidScoreJSON({
+          specCompliance: 80,
+          testCoverage: 80,
+          codeQuality: 80,
+          buildHealth: 80,
+          aggregate: 50, // Provided aggregate is overridden by computed value
+        }),
+      },
+    });
+    const result = await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    // computeAggregateScore(80, 80, 80, 80) = 80
+    expect(result.aggregate).toBe(80);
+  });
+
+  it("returns checklist items from evaluation response (spec: checklist traversal)", async () => {
+    mockSession.sendAndWait.mockResolvedValue({
+      data: {
+        content: makeValidScoreJSON({
+          checklist: [
+            {
+              requirement: "Loop Core",
+              score: 85,
+              reasoning: "loop.ts exists",
+            },
+            {
+              requirement: "Model Rotation",
+              score: 90,
+              reasoning: "modelSelection.ts present",
+            },
+          ],
+        }),
+      },
+    });
+    const result = await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    expect(result.checklist).toHaveLength(2);
+    expect(result.checklist[0]?.requirement).toBe("Loop Core");
+  });
+
+  it("falls back to CI-derived metrics when model returns no valid JSON (spec: fallback scoring)", async () => {
+    mockSession.sendAndWait.mockResolvedValue({
+      data: { content: "Sorry, I cannot score this." },
+    });
+    const fallback = makeFallback({ specCompliance: 60, aggregate: 71 });
+    const result = await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      fallback,
+    );
+    expect(result.specCompliance).toBe(60);
+    expect(result.aggregate).toBe(71);
+    expect(result.notes).toContain("Evaluation failed");
+  });
+
+  it("destroys the session unconditionally (spec: destroy session after evaluation)", async () => {
+    mockSession.sendAndWait.mockResolvedValue({
+      data: { content: makeValidScoreJSON() },
+    });
+    await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    expect(mockSession.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("destroys the session even when sendAndWait throws (spec: destroy session on error)", async () => {
+    mockSession.sendAndWait.mockRejectedValue(new Error("Network error"));
+    await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    expect(mockSession.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("retries once on session.idle timeout and returns result on second attempt (spec: retry on timeout)", async () => {
+    const timeoutErr = new Error(
+      "Timeout after 300000ms waiting for session.idle",
+    );
+    mockSession.sendAndWait
+      .mockRejectedValueOnce(timeoutErr)
+      .mockResolvedValueOnce({ data: { content: makeValidScoreJSON() } });
+    mockClient.createSession.mockResolvedValue(mockSession);
+    const result = await runFitnessEvaluation(
+      mockClient as unknown as CopilotClient,
+      "claude-haiku-4.5",
+      "evaluate this",
+      30_000,
+      makeFallback(),
+    );
+    expect(mockSession.sendAndWait).toHaveBeenCalledTimes(2);
+    expect(result.aggregate).toBeGreaterThan(0);
   });
 });
