@@ -1,0 +1,15 @@
+{
+  "maxIterations": 50,
+  "evaluationInterval": 5,
+  "models": [
+    "gpt-5.1-codex-mini",
+    "gpt-5.1-codex",
+    "gpt-4.1",
+    "claude-sonnet-4",
+    "claude-haiku-4.5",
+    "claude-sonnet-4.5"
+  ],
+  "evaluationModel": "claude-haiku-4.5",
+  "trackingRepo": "",
+  "timeout": 600000
+}

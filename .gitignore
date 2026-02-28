@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.cache/
+*.tgz
+.env
+.env.*
+ralph-state.json
+ralph-loop.log
+IMPLEMENTATION_PLAN.md
