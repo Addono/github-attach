@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/Addono/github-attach/compare/v1.0.2...v1.0.3) (2026-02-28)
+
+
+### Bug Fixes
+
+* skip E2E tests when GITHUB_TOKEN is not configured ([60763b6](https://github.com/Addono/github-attach/commit/60763b60f428d348d638c416f23cb5c368f472e4))
+
 ## [1.0.2](https://github.com/Addono/github-attach/compare/v1.0.1...v1.0.2) (2026-02-28)
 
 
