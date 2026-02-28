@@ -13,6 +13,7 @@ import {
   isSessionIdleTimeoutError,
   resolveEvaluationTimeoutMs,
 } from "./src/ralph/evaluation.ts";
+import { shouldEmitLog, type RalphLogLevel } from "./src/ralph/logging.ts";
 import {
   deriveCiStatus,
   generateCiBlockedComment,
@@ -142,9 +143,8 @@ async function saveState(state: RalphState): Promise<void> {
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-type LogLevel = "INFO" | "DEBUG" | "WARN" | "ERROR" | "EVAL" | "GITHUB" | "ITER" | "MODEL";
-
-function log(message: string, level: LogLevel = "INFO"): void {
+function log(message: string, level: RalphLogLevel = "INFO"): void {
+  if (!shouldEmitLog(level)) return;
   const lines = message.split("\n");
   const first = `[${new Date().toISOString()}] [${level}] ${lines[0]}\n`;
   const rest = lines

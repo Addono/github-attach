@@ -250,5 +250,16 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Targets the score-regression pattern where evaluation responses may include extra wrapper text and cause JSON parse misses that force fallback scores (`aggregate=0`).
     - Added `extractFitnessJsonPayload()` with balanced-brace scanning to find the first valid JSON object containing required fitness score fields, including content embedded in markdown code fences.
     - Updated `evaluateFitness()` in `ralph-loop.ts` to use the new helper, preserving existing score clamping and checklist normalization.
-    - Added unit coverage for plain JSON, fenced JSON with surrounding text, malformed-leading-object recovery, and null return when no valid payload exists.
-    - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
+  - Added unit coverage for plain JSON, fenced JSON with surrounding text, malformed-leading-object recovery, and null return when no valid payload exists.
+  - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
+
+## 20. Ralph Loop Quiet-Mode Debug Log Filtering Compliance
+- **Task:** Enforce `RALPH_QUIET=1` behavior so `[DEBUG]` lines are suppressed while other log levels remain visible. **[COMPLETE]**
+  - **Spec:** Logging/spec.md (Log Level Filtering → Quiet mode)
+  - **Files:** src/ralph/logging.ts (new), ralph-loop.ts
+  - **Tests:** test/unit/ralph/logging.test.ts (new)
+  - **Dependencies:** None
+  - **Notes:**
+    - Targets spec-compliance gap for the explicit quiet-mode requirement, improving scorecard confidence for logging behavior.
+    - Added centralized `shouldEmitLog()` helper to keep filtering logic testable and avoid ad-hoc checks in the loop body.
+    - `RALPH_QUIET=1` now suppresses only `DEBUG` events; informational, warning, and error logs are preserved for operator visibility.
