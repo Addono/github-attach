@@ -286,7 +286,7 @@ describe("MCP Server Integration", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url", "json"] },
+          format: { enum: ["markdown", "url"] },
         },
         required: ["target"],
       };
@@ -302,7 +302,7 @@ describe("MCP Server Integration", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url", "json"] },
+          format: { enum: ["markdown", "url"] },
         },
         required: ["target"],
       };
@@ -318,7 +318,7 @@ describe("MCP Server Integration", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url", "json"] },
+          format: { enum: ["markdown", "url"] },
         },
         required: ["target"],
       };
@@ -327,11 +327,10 @@ describe("MCP Server Integration", () => {
     });
 
     it("upload_image should support output format options", () => {
-      const formats = ["markdown", "url", "json"];
+      const formats = ["markdown", "url"];
 
       expect(formats).toContain("markdown");
       expect(formats).toContain("url");
-      expect(formats).toContain("json");
     });
   });
 });

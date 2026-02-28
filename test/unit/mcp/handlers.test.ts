@@ -237,11 +237,10 @@ describe("MCP Server - Handler Functions", () => {
     });
 
     it("should support output format selection", () => {
-      const formats = ["markdown", "url", "json"] as const;
+      const formats = ["markdown", "url"] as const;
 
       expect(formats).toContain("markdown");
       expect(formats).toContain("url");
-      expect(formats).toContain("json");
     });
 
     it("should require either filePath or content parameter", () => {
@@ -297,7 +296,7 @@ describe("MCP Server - Handler Functions", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url", "json"] },
+          format: { enum: ["markdown", "url"] },
         },
         required: ["target"],
       };

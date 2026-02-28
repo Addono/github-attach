@@ -71,7 +71,7 @@ const TOOLS = [
         },
         format: {
           type: "string",
-          enum: ["markdown", "url", "json"],
+          enum: ["markdown", "url"],
           description: "Output format",
         },
       },
@@ -304,8 +304,8 @@ async function handleUploadImage(args: {
   filename?: string;
   target: string;
   strategy?: string;
-  format?: "markdown" | "url" | "json";
-}): Promise<{ content: TextContent[] }> {
+  format?: "markdown" | "url";
+}): Promise<{ content: TextContent[]; isError?: boolean }> {
   try {
     let uploadPath = args.filePath;
 
@@ -324,6 +324,7 @@ async function handleUploadImage(args: {
             text: "Error: Either filePath or content must be provided",
           },
         ],
+        isError: true,
       };
     }
 
@@ -344,6 +345,7 @@ async function handleUploadImage(args: {
             text: "Error: No authentication available",
           },
         ],
+        isError: true,
       };
     }
 
@@ -361,9 +363,6 @@ async function handleUploadImage(args: {
     switch (format) {
       case "url":
         output = result.url;
-        break;
-      case "json":
-        output = JSON.stringify(result, null, 2);
         break;
       case "markdown":
       default:
@@ -387,6 +386,7 @@ async function handleUploadImage(args: {
           text: `Error: ${message}`,
         },
       ],
+      isError: true,
     };
   }
 }
