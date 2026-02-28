@@ -212,3 +212,18 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Added a shared helper to clamp evaluation timeout to a safe 180s–600s window, using loop timeout config as the source of truth.
     - Evaluation now retries once when the SDK reports a `session.idle` timeout, reducing transient fallback-score failures.
     - Validation run after this change: `typecheck`, `lint` (warnings only), `test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
+
+## 17. Ralph Loop CI Gating and Reporting Compliance
+- **Task:** Implement CI status persistence, prompt gating, and CI visibility/reporting in the Ralph loop. **[COMPLETE]**
+  - **Spec:** CI-gating/spec.md (CI Status Tracking, CI Gating Logic, CI Fix Tracking, GitHub Reporting, Lint Warning Accumulation), Ralph-loop/spec.md (GitHub issue labels)
+  - **Files:** ralph-loop.ts, src/ralph/ci-gating.ts (new), test/unit/ralph/ci-gating.test.ts (new)
+  - **Tests:** test/unit/ralph/ci-gating.test.ts
+  - **Dependencies:** Task 16
+  - **Notes:**
+    - Targets low-scoring checklist areas around spec compliance/code quality by implementing missing `ciStatus` state fields and CI gating behavior required by `ci-gating/spec.md`.
+    - Added full CI check execution per iteration (`build`, `test`, `lint`), persisted result fields (`passed`, status breakdown, errors, timestamps), and CI-broken fix tracking (`ciBrokenSince`, `ciFixAttempts`, `ciLastFixAttempt`).
+    - Added build-prompt CI context injection (`✅ pass`, `⚠️ lint warnings`, `❌ blocking failures`) so red CI explicitly blocks feature work and partial CI is highlighted.
+    - Added CI status summaries to GitHub fitness comments and CI-blocked issue notifications (`🚨 CI BLOCKED at Iteration N`) with failure details.
+    - Added lint warning aggregation (top rules/files) and threshold warning log when warnings exceed 20.
+    - Tracking issue creation now includes required labels: `ralph-loop`, `automated`.
+    - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.

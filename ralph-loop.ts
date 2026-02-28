@@ -12,6 +12,16 @@ import {
   isSessionIdleTimeoutError,
   resolveEvaluationTimeoutMs,
 } from "./src/ralph/evaluation.ts";
+import {
+  deriveCiStatus,
+  generateCiBlockedComment,
+  generateCiCommentSummary,
+  generateCiPromptContext,
+  isCiBroken,
+  normalizeCiStatus,
+  type CiStatus,
+  type CommandCheckResult,
+} from "./src/ralph/ci-gating.ts";
 
 // --- Types ---
 
@@ -59,6 +69,11 @@ interface RalphState {
   currentModel: string;
   trackingIssueNumber: number | null;
   evaluations: Evaluation[];
+  ciStatus: CiStatus;
+  ciBrokenSince: number | null;
+  ciFixAttempts: number;
+  ciLastFixAttempt: number | null;
+  ciLastBlockedNotification: number | null;
 }
 
 type Mode = "plan" | "build";
@@ -74,17 +89,52 @@ async function loadConfig(): Promise<RalphConfig> {
   return JSON.parse(raw) as RalphConfig;
 }
 
-async function loadState(): Promise<RalphState> {
-  if (existsSync(STATE_FILE)) {
-    const raw = await readFile(STATE_FILE, "utf-8");
-    return JSON.parse(raw) as RalphState;
-  }
+function defaultState(): RalphState {
   return {
     currentIteration: 0,
     currentModel: "",
     trackingIssueNumber: null,
     evaluations: [],
+    ciStatus: normalizeCiStatus(undefined),
+    ciBrokenSince: null,
+    ciFixAttempts: 0,
+    ciLastFixAttempt: null,
+    ciLastBlockedNotification: null,
   };
+}
+
+async function loadState(): Promise<RalphState> {
+  if (existsSync(STATE_FILE)) {
+    const raw = await readFile(STATE_FILE, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<RalphState>;
+    return {
+      currentIteration:
+        typeof parsed.currentIteration === "number" ? parsed.currentIteration : 0,
+      currentModel:
+        typeof parsed.currentModel === "string" ? parsed.currentModel : "",
+      trackingIssueNumber:
+        typeof parsed.trackingIssueNumber === "number"
+          ? parsed.trackingIssueNumber
+          : null,
+      evaluations: Array.isArray(parsed.evaluations)
+        ? (parsed.evaluations as Evaluation[])
+        : [],
+      ciStatus: normalizeCiStatus(parsed.ciStatus),
+      ciBrokenSince:
+        typeof parsed.ciBrokenSince === "number" ? parsed.ciBrokenSince : null,
+      ciFixAttempts:
+        typeof parsed.ciFixAttempts === "number" ? parsed.ciFixAttempts : 0,
+      ciLastFixAttempt:
+        typeof parsed.ciLastFixAttempt === "number"
+          ? parsed.ciLastFixAttempt
+          : null,
+      ciLastBlockedNotification:
+        typeof parsed.ciLastBlockedNotification === "number"
+          ? parsed.ciLastBlockedNotification
+          : null,
+    };
+  }
+  return defaultState();
 }
 
 async function saveState(state: RalphState): Promise<void> {
@@ -150,7 +200,7 @@ function selectModel(
 
 // --- Fitness evaluation ---
 
-function runCommand(cmd: string): { success: boolean; output: string } {
+function runCommand(cmd: string): CommandCheckResult {
   try {
     const output = execSync(cmd, {
       encoding: "utf-8",
@@ -164,6 +214,63 @@ function runCommand(cmd: string): { success: boolean; output: string } {
       success: false,
       output: ((e.stdout ?? "") + "\n" + (e.stderr ?? "")).slice(0, 2000),
     };
+  }
+}
+
+function runCiCheck(iteration: number, state: RalphState): void {
+  const buildResult = runCommand("npm run build 2>&1");
+  const testResult = runCommand("npm test 2>&1");
+  const lintResult = runCommand("npm run lint 2>&1");
+  const { status, lintSummary } = deriveCiStatus(
+    buildResult,
+    testResult,
+    lintResult,
+  );
+  state.ciStatus = status;
+
+  if (status.lintStatus === "warnings") {
+    log(
+      `CI warnings: ${status.lintWarningCount ?? 0} warnings (build/test passing)`,
+      "WARN",
+    );
+    if ((status.lintWarningCount ?? 0) > 20) {
+      log(
+        `[Lint Warning] Threshold exceeded: ${status.lintWarningCount} > 20`,
+        "WARN",
+      );
+    }
+    if (lintSummary.topRules.length > 0 || lintSummary.topFiles.length > 0) {
+      const ruleSummary = lintSummary.topRules.join(", ");
+      const fileSummary = lintSummary.topFiles.join(", ");
+      log(
+        `Lint warning details:\nTop rules: ${ruleSummary || "none"}\nTop files: ${fileSummary || "none"}`,
+        "WARN",
+      );
+    }
+  }
+
+  const wasBroken = state.ciBrokenSince !== null;
+  const nowBroken = isCiBroken(status);
+
+  if (nowBroken) {
+    if (state.ciBrokenSince === null) {
+      state.ciBrokenSince = iteration;
+    }
+    state.ciFixAttempts += 1;
+    state.ciLastFixAttempt = iteration;
+    return;
+  }
+
+  if (wasBroken && state.ciBrokenSince !== null) {
+    const brokenIterations = iteration - state.ciBrokenSince;
+    log(
+      `[CI Recovery] Fixed after ${brokenIterations} iterations and ${state.ciFixAttempts} attempts`,
+      "INFO",
+    );
+    state.ciBrokenSince = null;
+    state.ciFixAttempts = 0;
+    state.ciLastFixAttempt = iteration;
+    state.ciLastBlockedNotification = null;
   }
 }
 
@@ -382,6 +489,7 @@ function generateCommentBody(
   iteration: number,
   model: string,
   scores: FitnessScores,
+  ciStatus: CiStatus,
 ): string {
   // Sort checklist ascending by score so regressions surface first
   const sortedChecklist = [...(scores.checklist ?? [])].sort(
@@ -413,6 +521,7 @@ function generateCommentBody(
 | **Aggregate** | **${scores.aggregate}/100** |
 
 **Model**: ${model}
+**CI**: ${generateCiCommentSummary(ciStatus)}
 
 ${accordion}
 
@@ -478,7 +587,8 @@ async function postToGitHub(
     if (!state.trackingIssueNumber) {
       const result = execSync(
         `gh issue create --repo "${config.trackingRepo}" ` +
-          `--title "[Ralph Loop] Fitness Tracking"`,
+          `--title "[Ralph Loop] Fitness Tracking" ` +
+          `--label "ralph-loop" --label "automated"`,
         { encoding: "utf-8", timeout: 30_000 },
       );
       const match = result.match(/\/issues\/(\d+)/);
@@ -490,7 +600,7 @@ async function postToGitHub(
 
     if (state.trackingIssueNumber) {
       // Post per-evaluation comment (uses --body-file to preserve newlines)
-      const comment = generateCommentBody(iteration, model, scores);
+      const comment = generateCommentBody(iteration, model, scores, state.ciStatus);
       ghWithBodyFile(
         `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
         comment,
@@ -509,6 +619,33 @@ async function postToGitHub(
     }
   } catch (err) {
     log(`Failed to post to GitHub: ${err}`, "ERROR");
+  }
+}
+
+async function postCiBlockedNotification(
+  state: RalphState,
+  config: RalphConfig,
+  iteration: number,
+): Promise<void> {
+  if (
+    !config.trackingRepo ||
+    !state.trackingIssueNumber ||
+    !isCiBroken(state.ciStatus) ||
+    state.ciLastBlockedNotification === iteration
+  ) {
+    return;
+  }
+
+  try {
+    const body = generateCiBlockedComment(iteration, state.ciStatus);
+    ghWithBodyFile(
+      `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
+      body,
+      true,
+    );
+    state.ciLastBlockedNotification = iteration;
+  } catch (err) {
+    log(`Failed to post CI blocked notification: ${err}`, "ERROR");
   }
 }
 
@@ -743,10 +880,11 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
     for (let i = startIteration; i <= endIteration; i++) {
       if (shuttingDown) break;
 
+      const ciContext = generateCiPromptContext(state.ciStatus);
       const improvementContext = generateImprovementContext(state.evaluations);
-      const prompt = improvementContext
-        ? `${basePrompt}\n${improvementContext}`
-        : basePrompt;
+      const prompt = [basePrompt, ciContext, improvementContext]
+        .filter((v) => v.trim() !== "")
+        .join("\n");
 
       const lastEval = state.evaluations[state.evaluations.length - 1];
       const scoreHint = lastEval
@@ -756,6 +894,9 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
       if (lastEval && lastEval.scores.checklist.length > 0) {
         const worstItem = [...lastEval.scores.checklist].sort((a, b) => a.score - b.score)[0]!;
         log(`Target this iteration: [${worstItem.score}/100] ${worstItem.requirement}`, "ITER");
+      }
+      if (isCiBroken(state.ciStatus)) {
+        await postCiBlockedNotification(state, config, i);
       }
 
       const session = await client.createSession({
@@ -802,6 +943,7 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
       log(`Iteration ${i} complete in ${elapsed}s | Tools used: ${toolSummary || "none"}`, "ITER");
 
       state.currentIteration = i;
+      runCiCheck(i, state);
 
       // Fitness evaluation every N iterations
       if (i % config.evaluationInterval === 0) {
