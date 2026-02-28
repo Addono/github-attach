@@ -113,16 +113,48 @@ describe("loginCommand integration tests", () => {
     exitSpy.mockRestore();
   });
 
-  it("should throw error for interactive login not implemented", async () => {
-    await expect(loginCommand({})).rejects.toThrow(
-      "Interactive browser login is not yet implemented",
+  it("should attempt interactive login with browser", async () => {
+    // Skip this test if Playwright browsers are not installed
+    // The interactive login is verified via the console output
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    try {
+      await loginCommand({});
+    } catch (err) {
+      // Expected: Playwright browser launch may fail in CI environments
+      // The important thing is that the login flow was initiated
+      if (
+        err instanceof Error &&
+        !err.message.includes("browserType.launch") &&
+        !err.message.includes("Executable doesn't exist")
+      ) {
+        throw err; // Re-throw unexpected errors
+      }
+    }
+
+    // Verify the opening message was logged before browser launch attempt
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "Opening browser for GitHub authentication...",
     );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "Please log in to GitHub in the browser window that opens.",
+    );
+
+    consoleSpy.mockRestore();
   });
 
-  it("should throw error when trying to login interactively", async () => {
-    await expect(loginCommand({ status: false })).rejects.toThrow(
-      "Interactive browser login is not yet implemented",
+  it("should gracefully handle browser launch failures", async () => {
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    // The actual browser launch will fail in CI without browsers installed
+    await expect(loginCommand({})).rejects.toThrow();
+
+    // Verify the opening message was logged before browser launch attempt
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "Opening browser for GitHub authentication...",
     );
+
+    consoleSpy.mockRestore();
   });
 
   it("should handle session without username", async () => {
