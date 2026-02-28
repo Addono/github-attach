@@ -13,6 +13,38 @@ import {
 } from "../core/types.js";
 
 /**
+ * Global CLI options that apply to all commands.
+ */
+export interface GlobalOptions {
+  verbose?: boolean;
+  quiet?: boolean;
+  noColor?: boolean;
+}
+
+/**
+ * Global state for CLI options.
+ */
+export const globalOptions: GlobalOptions = {};
+
+/**
+ * Log debug information (only in verbose mode).
+ */
+export function debug(message: string): void {
+  if (globalOptions.verbose && !globalOptions.quiet) {
+    console.error(`[debug] ${message}`);
+  }
+}
+
+/**
+ * Log informational message (suppressed in quiet mode).
+ */
+export function info(message: string): void {
+  if (!globalOptions.quiet) {
+    console.log(message);
+  }
+}
+
+/**
  * Exit codes per CLI specification:
  * - 0: Success
  * - 1: General error
@@ -43,13 +75,23 @@ const program = new Command();
 program
   .name("gh-attach")
   .description("Upload images to GitHub issues, PRs, and comments")
-  .version(pkg.version);
+  .version(pkg.version)
+  .option("-v, --verbose", "Print debug information to stderr")
+  .option("-q, --quiet", "Suppress all output except the final result or errors")
+  .option("--no-color", "Disable ANSI color codes in output")
+  .hook("preAction", (thisCommand) => {
+    const opts = thisCommand.opts();
+    globalOptions.verbose = opts.verbose ?? false;
+    globalOptions.quiet = opts.quiet ?? false;
+    // Check both flag and NO_COLOR environment variable
+    globalOptions.noColor = opts.color === false || !!process.env.NO_COLOR;
+  });
 
 program
   .command("upload")
   .description("Upload an image and get a markdown embed URL")
   .argument("<files...>", "Image file(s) to upload")
-  .requiredOption(
+  .option(
     "--target <ref>",
     "GitHub issue/PR reference (owner/repo#N, #N, or URL)",
   )

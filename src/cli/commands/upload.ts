@@ -8,10 +8,12 @@ import { createRepoBranchStrategy } from "../../core/strategies/repoBranch.js";
 import { parseTarget } from "../../core/target.js";
 import { validateFile } from "../../core/validation.js";
 import { upload } from "../../core/upload.js";
+import { loadConfig } from "./config.js";
+import { debug } from "../index.js";
 import type { UploadStrategy } from "../../core/types.js";
 
 interface UploadOptions {
-  target: string;
+  target?: string;
   strategy?: string;
   format?: "markdown" | "url" | "json";
   stdin?: boolean;
@@ -19,9 +21,51 @@ interface UploadOptions {
 }
 
 /**
+ * Default strategy order per spec.
+ */
+const DEFAULT_STRATEGY_ORDER = [
+  "browser-session",
+  "cookie-extraction",
+  "release-asset",
+  "repo-branch",
+];
+
+/**
+ * Create a strategy instance by name.
+ */
+function createStrategy(name: string): UploadStrategy | null {
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const cookies = process.env.GH_ATTACH_COOKIES;
+
+  switch (name) {
+    case "browser-session":
+      if (cookies) {
+        return createBrowserSessionStrategy(cookies);
+      }
+      return null;
+    case "cookie-extraction":
+      return createCookieExtractionStrategy();
+    case "release-asset":
+      if (token) {
+        return createReleaseAssetStrategy(token);
+      }
+      return null;
+    case "repo-branch":
+      if (token) {
+        return createRepoBranchStrategy(token);
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+/**
  * Upload command implementation.
  */
 export async function uploadCommand(files: string[], options: UploadOptions) {
+  const config = loadConfig();
+
   // Handle stdin input
   if (options.stdin) {
     if (!options.filename) {
@@ -33,10 +77,24 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
     files = [tempFile];
   }
 
+  // Resolve target: CLI option > config > error
+  let targetRef = options.target;
+  if (!targetRef) {
+    const defaultTarget = config["default-target"];
+    if (typeof defaultTarget === "string") {
+      targetRef = defaultTarget;
+      debug(`Using default target from config: ${targetRef}`);
+    } else {
+      throw new Error(
+        "Target is required. Use --target or set default-target in config.",
+      );
+    }
+  }
+
   // Parse target
   let uploadTarget;
   try {
-    uploadTarget = parseTarget(options.target);
+    uploadTarget = parseTarget(targetRef);
   } catch (err) {
     if (err instanceof Error) {
       throw new Error(`Invalid target: ${err.message}`);
@@ -44,57 +102,38 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
     throw err;
   }
 
+  // Resolve strategy: CLI option > environment variable > config > default
+  const explicitStrategy =
+    options.strategy || process.env.GH_ATTACH_STRATEGY;
+
   // Build strategies list
   const strategies: UploadStrategy[] = [];
 
-  // If a specific strategy is requested, only use that one
-  if (options.strategy) {
-    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-    const cookies = process.env.GH_ATTACH_COOKIES;
-
-    switch (options.strategy) {
-      case "release-asset":
-        if (!token) {
-          throw new Error(
-            "release-asset strategy requires GITHUB_TOKEN or GH_TOKEN environment variable",
-          );
-        }
-        strategies.push(createReleaseAssetStrategy(token));
-        break;
-      case "browser-session":
-        if (!cookies) {
-          throw new Error(
-            "browser-session strategy requires GH_ATTACH_COOKIES environment variable",
-          );
-        }
-        strategies.push(createBrowserSessionStrategy(cookies));
-        break;
-      case "cookie-extraction":
-        strategies.push(createCookieExtractionStrategy());
-        break;
-      case "repo-branch":
-        if (!token) {
-          throw new Error(
-            "repo-branch strategy requires GITHUB_TOKEN or GH_TOKEN environment variable",
-          );
-        }
-        strategies.push(createRepoBranchStrategy(token));
-        break;
-      default:
-        throw new Error(`Unknown strategy: ${options.strategy}`);
+  if (explicitStrategy) {
+    // Use only the specified strategy
+    debug(`Using explicit strategy: ${explicitStrategy}`);
+    const strategy = createStrategy(explicitStrategy);
+    if (!strategy) {
+      throw new Error(
+        `Strategy '${explicitStrategy}' is not available. ` +
+          "Check that required environment variables are set.",
+      );
     }
+    strategies.push(strategy);
   } else {
-    // Default strategy order: browser-session, cookie-extraction, release-asset, repo-branch
-    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
-    const cookies = process.env.GH_ATTACH_COOKIES;
+    // Use strategy order from config or default
+    const configOrder = config["strategy-order"];
+    const strategyOrder = Array.isArray(configOrder)
+      ? configOrder
+      : DEFAULT_STRATEGY_ORDER;
 
-    if (cookies) {
-      strategies.push(createBrowserSessionStrategy(cookies));
-    }
-    strategies.push(createCookieExtractionStrategy());
-    if (token) {
-      strategies.push(createReleaseAssetStrategy(token));
-      strategies.push(createRepoBranchStrategy(token));
+    debug(`Strategy order: ${strategyOrder.join(", ")}`);
+
+    for (const name of strategyOrder) {
+      const strategy = createStrategy(name);
+      if (strategy) {
+        strategies.push(strategy);
+      }
     }
   }
 

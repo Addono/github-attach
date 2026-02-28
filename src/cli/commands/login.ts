@@ -68,13 +68,13 @@ export async function loginCommand(options: LoginOptions) {
     const session = loadSession();
     if (!session) {
       console.log("Status: not authenticated");
-      process.exit(1);
+      process.exit(2); // Exit code 2 for authentication errors per spec
     }
 
     // Check if session is expired
     if (session.expires && session.expires < Date.now()) {
       console.log("Status: session expired");
-      process.exit(1);
+      process.exit(2); // Exit code 2 for authentication errors per spec
     }
 
     if (session.username) {

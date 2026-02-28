@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 
-interface Config {
+export interface Config {
   [key: string]: string | string[];
 }
 
@@ -20,8 +20,9 @@ function getConfigPath(): string {
 
 /**
  * Load configuration from file.
+ * @internal exported for use by other commands
  */
-function loadConfig(): Config {
+export function loadConfig(): Config {
   const path = getConfigPath();
   if (!existsSync(path)) {
     return {};
