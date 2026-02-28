@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { mkdtemp, mkdir, chmod, writeFile, readFile, stat, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  chmod,
+  writeFile,
+  readFile,
+  stat,
+  rm,
+} from "node:fs/promises";
 
 type PackageJson = {
   bin?: Record<string, string>;
@@ -22,7 +30,9 @@ describe("gh extension entrypoints", () => {
     const ghExtensionStat = await stat(join(root, "gh-extension"));
     expect((ghExtensionStat.mode & 0o111) !== 0).toBe(true);
 
-    const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as PackageJson;
+    const pkg = JSON.parse(
+      await readFile(join(root, "package.json"), "utf8"),
+    ) as PackageJson;
     expect(pkg.bin?.["gh-extension"]).toBe("gh-extension");
     expect(pkg.files).toContain("gh-extension");
     expect(pkg.files).toContain("gh-attach");
@@ -46,9 +56,13 @@ describe("gh extension entrypoints", () => {
       await writeFile(mockBin, "#!/bin/sh\necho MOCK\n", "utf8");
       await chmod(mockBin, 0o755);
 
-      const { stdout, stderr } = await execFileAsync(ghAttachPath, ["--version"], {
-        env: { ...process.env, GH_REPO: "owner/gh-attach" },
-      });
+      const { stdout, stderr } = await execFileAsync(
+        ghAttachPath,
+        ["--version"],
+        {
+          env: { ...process.env, GH_REPO: "owner/gh-attach" },
+        },
+      );
 
       expect(stderr).toBe("");
       expect(stdout).toBe("MOCK\n");

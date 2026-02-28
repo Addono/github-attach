@@ -75,7 +75,10 @@ export function createFixtureHandlers(
       });
     }
 
-    return new HttpResponse(null, { status: expected.response.status, headers });
+    return new HttpResponse(null, {
+      status: expected.response.status,
+      headers,
+    });
   });
 
   return {

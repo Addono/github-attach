@@ -57,7 +57,9 @@ export function resolveSessionPath(options: SessionPathOptions = {}): string {
  *
  * Returns null when the file does not exist or cannot be parsed.
  */
-export function loadSession(options: SessionPathOptions = {}): SessionData | null {
+export function loadSession(
+  options: SessionPathOptions = {},
+): SessionData | null {
   const path = resolveSessionPath(options);
   if (!existsSync(path)) {
     return null;

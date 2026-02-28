@@ -30,5 +30,11 @@ export async function upload(
     tried.push(strategy.name);
   }
 
-  throw new NoStrategyAvailableError(tried);
+  throw new NoStrategyAvailableError(
+    `No upload strategy available. Tried: ${tried.join(", ")}`,
+    tried.map((name) => ({
+      strategy: name,
+      reason: "isAvailable() returned false",
+    })),
+  );
 }

@@ -49,7 +49,8 @@ export function normalizeCiStatus(input: unknown): CiStatus {
   const raw = input as Partial<CiStatus>;
   return {
     passed: typeof raw.passed === "boolean" ? raw.passed : base.passed,
-    lastCheck: typeof raw.lastCheck === "string" ? raw.lastCheck : base.lastCheck,
+    lastCheck:
+      typeof raw.lastCheck === "string" ? raw.lastCheck : base.lastCheck,
     buildStatus: raw.buildStatus ?? base.buildStatus,
     testStatus: raw.testStatus ?? base.testStatus,
     lintStatus: raw.lintStatus ?? base.lintStatus,
@@ -145,7 +146,11 @@ export function generateCiPromptContext(ciStatus: CiStatus): string {
   if (!ciStatus.lastCheck) return "";
 
   if (isCiBroken(ciStatus)) {
-    const details = [ciStatus.buildError, ciStatus.testError, ciStatus.lintError]
+    const details = [
+      ciStatus.buildError,
+      ciStatus.testError,
+      ciStatus.lintError,
+    ]
       .filter((v): v is string => Boolean(v))
       .map((v) => `- ${v.replace(/\s+/g, " ").slice(0, 200)}`)
       .join("\n");
@@ -173,7 +178,11 @@ export function generateCiCommentSummary(ciStatus: CiStatus): string {
       .filter((v): v is string => Boolean(v))
       .join(", ");
 
-    const error = ciStatus.buildError ?? ciStatus.testError ?? ciStatus.lintError ?? "no details";
+    const error =
+      ciStatus.buildError ??
+      ciStatus.testError ??
+      ciStatus.lintError ??
+      "no details";
     return `❌ CI: Build/Test/Lint failed (${failures}) — ${error.replace(/\s+/g, " ").slice(0, 200)}`;
   }
 
@@ -185,7 +194,10 @@ export function generateCiCommentSummary(ciStatus: CiStatus): string {
 }
 
 /** Build the issue comment body to post when CI is currently blocking work. */
-export function generateCiBlockedComment(iteration: number, ciStatus: CiStatus): string {
+export function generateCiBlockedComment(
+  iteration: number,
+  ciStatus: CiStatus,
+): string {
   const failureType = [
     ciStatus.buildStatus === "failed" ? "build" : null,
     ciStatus.testStatus === "failed" ? "test" : null,
@@ -194,7 +206,12 @@ export function generateCiBlockedComment(iteration: number, ciStatus: CiStatus):
     .filter((v): v is string => Boolean(v))
     .join(", ");
 
-  const error = (ciStatus.buildError ?? ciStatus.testError ?? ciStatus.lintError ?? "No error message captured")
+  const error = (
+    ciStatus.buildError ??
+    ciStatus.testError ??
+    ciStatus.lintError ??
+    "No error message captured"
+  )
     .replace(/\s+/g, " ")
     .slice(0, 200);
 

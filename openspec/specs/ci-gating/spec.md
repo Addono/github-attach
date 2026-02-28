@@ -109,7 +109,7 @@ The system SHALL track iterations spent fixing broken CI.
   - `[CI Recovery] Fixed after {N} iterations and {N} attempts`
   - The GitHub tracking issue comment SHALL celebrate the recovery:
     ```
-    🎉 **CI Restored!** 
+    🎉 **CI Restored!**
     - Broken for 3 iterations
     - Fixed in iteration 15
     ```
@@ -133,12 +133,13 @@ The system SHALL report CI status to GitHub with visibility.
 - GIVEN CI is broken
 - WHEN the next iteration starts
 - THEN post a comment on the tracking issue:
+
   ```
   🚨 **CI BLOCKED at Iteration {N}**
-  
+
   Current failure:
   {failureType}: {errorMessage (first 200 chars)}
-  
+
   Next iteration will focus on fixing this before resuming feature work.
   ```
 

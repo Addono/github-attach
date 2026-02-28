@@ -68,7 +68,7 @@ function extractFirstValidFitnessObject(
   return null;
 }
 
-function *getJsonObjectSlices(text: string): Generator<string> {
+function* getJsonObjectSlices(text: string): Generator<string> {
   for (let start = 0; start < text.length; start++) {
     if (text[start] !== "{") continue;
     let depth = 0;
@@ -86,10 +86,10 @@ function *getJsonObjectSlices(text: string): Generator<string> {
           escaped = true;
           continue;
         }
-        if (char === "\"") inString = false;
+        if (char === '"') inString = false;
         continue;
       }
-      if (char === "\"") {
+      if (char === '"') {
         inString = true;
         continue;
       }

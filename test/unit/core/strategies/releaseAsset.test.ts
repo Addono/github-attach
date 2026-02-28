@@ -40,7 +40,6 @@ vi.mock("fs", () => ({
   },
 }));
 
-
 const mockTarget: UploadTarget = {
   owner: "testowner",
   repo: "testrepo",
@@ -263,6 +262,207 @@ describe("Release Asset Strategy", () => {
     it("has correct strategy name", async () => {
       const strategy = createReleaseAssetStrategy("valid-token");
       expect(strategy.name).toBe("release-asset");
+    });
+
+    it("throws AuthenticationError on 401 from getReleaseByTag", async () => {
+      const strategy = createReleaseAssetStrategy("bad-token");
+      const err401 = Object.assign(new Error("401 Unauthorized"), {
+        status: 401,
+      });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err401);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toThrow(AuthenticationError);
+    });
+
+    it("throws UploadError RATE_LIMIT_EXCEEDED on 403 rate limit from getReleaseByTag", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const err403 = Object.assign(new Error("rate limit"), {
+        status: 403,
+        response: { headers: { "x-ratelimit-remaining": "0" } },
+      });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err403);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RATE_LIMIT_EXCEEDED",
+      );
+    });
+
+    it("throws AuthenticationError on 401 when creating release", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
+      const err401 = Object.assign(new Error("401 Bad Credentials"), {
+        status: 401,
+      });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err404);
+      mockOctokitInstance.rest.repos.createRelease.mockRejectedValue(err401);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toThrow(AuthenticationError);
+    });
+
+    it("throws UploadError RATE_LIMIT_EXCEEDED on 403 rate limit when creating release", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
+      const err403 = Object.assign(new Error("rate limit exceeded"), {
+        status: 403,
+        response: { headers: { "x-ratelimit-remaining": "0" } },
+      });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err404);
+      mockOctokitInstance.rest.repos.createRelease.mockRejectedValue(err403);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RATE_LIMIT_EXCEEDED",
+      );
+    });
+
+    it("throws UploadError RELEASE_CREATE_FAILED on 422 when creating release", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
+      const err422 = Object.assign(new Error("Validation Failed"), {
+        status: 422,
+      });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err404);
+      mockOctokitInstance.rest.repos.createRelease.mockRejectedValue(err422);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RELEASE_CREATE_FAILED",
+      );
+    });
+
+    it("throws UploadError RELEASE_CREATE_FAILED on generic error when creating release", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
+      const genericErr = Object.assign(new Error("Internal Server Error"), {
+        status: 500,
+      });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err404);
+      mockOctokitInstance.rest.repos.createRelease.mockRejectedValue(
+        genericErr,
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RELEASE_CREATE_FAILED",
+      );
+    });
+
+    it("throws UploadError RELEASE_LOOKUP_FAILED on generic getReleaseByTag error", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const err500 = Object.assign(new Error("Server Error"), { status: 500 });
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(err500);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RELEASE_LOOKUP_FAILED",
+      );
+    });
+
+    it("throws AuthenticationError on 401 from uploadReleaseAsset", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const mockRelease = { id: 123 };
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockResolvedValue({
+        data: mockRelease,
+      });
+      mockOctokitInstance.rest.repos.listReleaseAssets.mockResolvedValue({
+        data: [],
+      });
+      const err401 = Object.assign(new Error("401 Unauthorized"), {
+        status: 401,
+      });
+      mockOctokitInstance.rest.repos.uploadReleaseAsset.mockRejectedValue(
+        err401,
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toThrow(AuthenticationError);
+    });
+
+    it("throws UploadError RATE_LIMIT_EXCEEDED on 403 rate limit from uploadReleaseAsset", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      const mockRelease = { id: 123 };
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockResolvedValue({
+        data: mockRelease,
+      });
+      mockOctokitInstance.rest.repos.listReleaseAssets.mockResolvedValue({
+        data: [],
+      });
+      const err403 = Object.assign(new Error("rate limit"), {
+        status: 403,
+        response: { headers: { "x-ratelimit-remaining": "0" } },
+      });
+      mockOctokitInstance.rest.repos.uploadReleaseAsset.mockRejectedValue(
+        err403,
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RATE_LIMIT_EXCEEDED",
+      );
+    });
+
+    it("handles filename collision for files without extension", async () => {
+      const strategy = createReleaseAssetStrategy("valid-token");
+      const mockFilePath = "/tmp/Makefile";
+      const mockRelease = { id: 123 };
+      const existingAsset = {
+        name: "Makefile",
+        browser_download_url: "https://github.com/releases/download/Makefile",
+      };
+      const newAsset = {
+        name: "Makefile-abc123",
+        browser_download_url:
+          "https://github.com/releases/download/Makefile-abc123",
+      };
+
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockResolvedValue({
+        data: mockRelease,
+      });
+      mockOctokitInstance.rest.repos.listReleaseAssets.mockResolvedValue({
+        data: [existingAsset],
+      });
+      mockOctokitInstance.rest.repos.uploadReleaseAsset.mockResolvedValue({
+        data: newAsset,
+      });
+
+      const result = await strategy.upload(mockFilePath, mockTarget);
+      expect(result.url).toBe(newAsset.browser_download_url);
+      const uploadCall =
+        mockOctokitInstance.rest.repos.uploadReleaseAsset.mock.calls[0][0];
+      expect(uploadCall.name).toMatch(/Makefile-[a-z0-9]{6}/);
+      expect(uploadCall.name).not.toContain(".");
+    });
+
+    it("wraps non-Error throw as UploadError RELEASE_LOOKUP_FAILED", async () => {
+      const strategy = createReleaseAssetStrategy("token");
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockRejectedValue(
+        "string error",
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "RELEASE_LOOKUP_FAILED",
+      );
     });
   });
 });

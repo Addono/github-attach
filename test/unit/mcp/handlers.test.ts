@@ -14,7 +14,9 @@ type CallToolHandler = (request: {
   params: { name: string; arguments?: Record<string, unknown> };
 }) => Promise<ToolResult>;
 
-type ListToolsHandler = () => Promise<{ tools: Array<{ name: string; inputSchema?: unknown }> }>;
+type ListToolsHandler = () => Promise<{
+  tools: Array<{ name: string; inputSchema?: unknown }>;
+}>;
 
 const hoisted = vi.hoisted(() => ({
   callToolSchema: Symbol("call-tool"),
@@ -22,16 +24,14 @@ const hoisted = vi.hoisted(() => ({
   callToolHandler: undefined as CallToolHandler | undefined,
   listToolsHandler: undefined as ListToolsHandler | undefined,
   mockServerConnect: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-  mockServerSetRequestHandler: vi.fn(
-    (schema: unknown, handler: unknown) => {
-      if (schema === hoisted.callToolSchema) {
-        hoisted.callToolHandler = handler as CallToolHandler;
-      }
-      if (schema === hoisted.listToolsSchema) {
-        hoisted.listToolsHandler = handler as ListToolsHandler;
-      }
-    },
-  ),
+  mockServerSetRequestHandler: vi.fn((schema: unknown, handler: unknown) => {
+    if (schema === hoisted.callToolSchema) {
+      hoisted.callToolHandler = handler as CallToolHandler;
+    }
+    if (schema === hoisted.listToolsSchema) {
+      hoisted.listToolsHandler = handler as ListToolsHandler;
+    }
+  }),
   mockTarget: {
     owner: "octo",
     repo: "repo",
@@ -137,16 +137,30 @@ describe("MCP server handlers", () => {
     vi.clearAllMocks();
     hoisted.callToolHandler = undefined;
     hoisted.listToolsHandler = undefined;
-    hoisted.mockReleaseStrategy.upload.mockResolvedValue(hoisted.mockUploadResult);
-    hoisted.mockBrowserStrategy.upload.mockResolvedValue(hoisted.mockUploadResult);
-    hoisted.mockCookieStrategy.upload.mockResolvedValue(hoisted.mockUploadResult);
-    hoisted.mockRepoBranchStrategy.upload.mockResolvedValue(hoisted.mockUploadResult);
-    hoisted.mockCreateReleaseAssetStrategy.mockReturnValue(hoisted.mockReleaseStrategy);
-    hoisted.mockCreateBrowserSessionStrategy.mockReturnValue(hoisted.mockBrowserStrategy);
+    hoisted.mockReleaseStrategy.upload.mockResolvedValue(
+      hoisted.mockUploadResult,
+    );
+    hoisted.mockBrowserStrategy.upload.mockResolvedValue(
+      hoisted.mockUploadResult,
+    );
+    hoisted.mockCookieStrategy.upload.mockResolvedValue(
+      hoisted.mockUploadResult,
+    );
+    hoisted.mockRepoBranchStrategy.upload.mockResolvedValue(
+      hoisted.mockUploadResult,
+    );
+    hoisted.mockCreateReleaseAssetStrategy.mockReturnValue(
+      hoisted.mockReleaseStrategy,
+    );
+    hoisted.mockCreateBrowserSessionStrategy.mockReturnValue(
+      hoisted.mockBrowserStrategy,
+    );
     hoisted.mockCreateCookieExtractionStrategy.mockReturnValue(
       hoisted.mockCookieStrategy,
     );
-    hoisted.mockCreateRepoBranchStrategy.mockReturnValue(hoisted.mockRepoBranchStrategy);
+    hoisted.mockCreateRepoBranchStrategy.mockReturnValue(
+      hoisted.mockRepoBranchStrategy,
+    );
     hoisted.mockParseTarget.mockReturnValue(hoisted.mockTarget);
     hoisted.mockValidateFile.mockResolvedValue(undefined);
     hoisted.mockUpload.mockResolvedValue(hoisted.mockUploadResult);
@@ -177,7 +191,9 @@ describe("MCP server handlers", () => {
       "list_strategies",
     ]);
 
-    const uploadTool = response.tools.find((tool) => tool.name === "upload_image");
+    const uploadTool = response.tools.find(
+      (tool) => tool.name === "upload_image",
+    );
     expect(uploadTool).toBeDefined();
     const uploadSchema = uploadTool?.inputSchema as {
       properties: { format: { enum: string[] } };
@@ -283,7 +299,8 @@ describe("MCP server handlers", () => {
     expect(hoisted.mockValidateFile).toHaveBeenCalledWith("/tmp/example.png");
     expect(hoisted.mockUpload).toHaveBeenCalledTimes(1);
 
-    const passedStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ?? []) as UploadStrategy[];
+    const passedStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ??
+      []) as UploadStrategy[];
     expect(passedStrategies.map((strategy) => strategy.name)).toEqual([
       "cookie-extraction",
       "release-asset",
@@ -308,7 +325,8 @@ describe("MCP server handlers", () => {
     });
 
     expect(response.content[0]?.text).toBe(hoisted.mockUploadResult.url);
-    const passedStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ?? []) as UploadStrategy[];
+    const passedStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ??
+      []) as UploadStrategy[];
     expect(passedStrategies.map((strategy) => strategy.name)).toEqual([
       "release-asset",
     ]);
@@ -353,9 +371,11 @@ describe("MCP server handlers", () => {
     const content = Buffer.from("image-bytes").toString("base64");
     let tempUploadPath: string | undefined;
 
-    hoisted.mockValidateFile.mockImplementationOnce(async (filePath: string) => {
-      tempUploadPath = filePath;
-    });
+    hoisted.mockValidateFile.mockImplementationOnce(
+      async (filePath: string) => {
+        tempUploadPath = filePath;
+      },
+    );
     hoisted.mockUpload.mockRejectedValueOnce(new Error("upload failed"));
 
     const { call } = await startServerAndGetHandlers();

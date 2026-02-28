@@ -36,10 +36,15 @@ describe("Error hierarchy", () => {
   });
 
   it("NoStrategyAvailableError lists tried strategies", () => {
-    const err = new NoStrategyAvailableError(["s1", "s2"]);
+    const err = new NoStrategyAvailableError("No strategy available", [
+      { strategy: "s1", reason: "not available" },
+      { strategy: "s2", reason: "not configured" },
+    ]);
     expect(err).toBeInstanceOf(GhAttachError);
     expect(err.code).toBe("NO_STRATEGY_AVAILABLE");
-    expect(err.details).toEqual({ tried: ["s1", "s2"] });
-    expect(err.message).toContain("s1, s2");
+    expect(err.details).toEqual({
+      tried: ["s1: not available", "s2: not configured"],
+    });
+    expect(err.message).toContain("No strategy available");
   });
 });

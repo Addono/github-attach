@@ -52,7 +52,10 @@ program
   .description("Upload images to GitHub issues, PRs, and comments")
   .version(pkg.version)
   .option("-v, --verbose", "Print debug information to stderr")
-  .option("-q, --quiet", "Suppress all output except the final result or errors")
+  .option(
+    "-q, --quiet",
+    "Suppress all output except the final result or errors",
+  )
   .option("--no-color", "Disable ANSI color codes in output")
   .hook("preAction", (thisCommand) => {
     const opts = thisCommand.opts();

@@ -31,7 +31,9 @@ describe("isSessionIdleTimeoutError", () => {
 
   it("detects timeout errors from plain strings", () => {
     expect(
-      isSessionIdleTimeoutError("Timeout after 180000ms waiting for session.idle"),
+      isSessionIdleTimeoutError(
+        "Timeout after 180000ms waiting for session.idle",
+      ),
     ).toBe(true);
   });
 

@@ -65,13 +65,20 @@ describe("prompt and comment helpers", () => {
       buildStatus: "failed" as const,
       buildError: "TypeScript compile failed",
     };
-    expect(generateCiPromptContext(ci)).toContain("Do not work on new features");
+    expect(generateCiPromptContext(ci)).toContain(
+      "Do not work on new features",
+    );
     expect(generateCiCommentSummary(ci)).toContain("❌ CI");
-    expect(generateCiBlockedComment(7, ci)).toContain("CI BLOCKED at Iteration 7");
+    expect(generateCiBlockedComment(7, ci)).toContain(
+      "CI BLOCKED at Iteration 7",
+    );
   });
 
   it("normalizes partial state input safely", () => {
-    const ci = normalizeCiStatus({ lintWarningCount: 5, lintStatus: "warnings" });
+    const ci = normalizeCiStatus({
+      lintWarningCount: 5,
+      lintStatus: "warnings",
+    });
     expect(ci.lintWarningCount).toBe(5);
     expect(ci.lintStatus).toBe("warnings");
     expect(ci.buildStatus).toBe("skipped");

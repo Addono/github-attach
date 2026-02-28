@@ -63,9 +63,9 @@ describe("CLI exit codes", () => {
     });
 
     it("should return 1 for NoStrategyAvailableError", () => {
-      const err = new NoStrategyAvailableError([
-        "release-asset",
-        "repo-branch",
+      const err = new NoStrategyAvailableError("No strategy available", [
+        { strategy: "release-asset", reason: "not available" },
+        { strategy: "repo-branch", reason: "not configured" },
       ]);
       expect(getExitCode(err)).toBe(1);
     });

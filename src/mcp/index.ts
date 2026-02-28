@@ -206,9 +206,8 @@ async function readRequestBody(req: IncomingMessage): Promise<string> {
 async function startHttpServer(
   port: number,
 ): Promise<{ port: number; close: () => Promise<void> }> {
-  const { StreamableHTTPServerTransport } = await import(
-    "@modelcontextprotocol/sdk/server/streamableHttp.js"
-  );
+  const { StreamableHTTPServerTransport } =
+    await import("@modelcontextprotocol/sdk/server/streamableHttp.js");
 
   type StreamableHTTPServerTransportCtor =
     typeof import("@modelcontextprotocol/sdk/server/streamableHttp.js").StreamableHTTPServerTransport;
@@ -378,7 +377,9 @@ async function startHttpServer(
   return {
     port: listenPort,
     close: async () => {
-      await Promise.all([...sessions.values()].map(async (s) => await s.server.close()));
+      await Promise.all(
+        [...sessions.values()].map(async (s) => await s.server.close()),
+      );
       sessions.clear();
       await new Promise<void>((resolve, reject) => {
         httpServer.close((closeErr) => {
@@ -461,7 +462,10 @@ async function handleUploadImage(args: {
     // If content is provided, decode and write to temp file
     if (args.content && args.filename) {
       const buffer = Buffer.from(args.content, "base64");
-      tempFilePath = join(tmpdir(), `gh-attach-${randomUUID()}-${args.filename}`);
+      tempFilePath = join(
+        tmpdir(),
+        `gh-attach-${randomUUID()}-${args.filename}`,
+      );
       uploadPath = tempFilePath;
       writeFileSync(tempFilePath, buffer);
     }

@@ -3,6 +3,7 @@
 This plan lists prioritized tasks required to bring the implementation into full compliance with OpenSpec specifications. Each task notes the spec requirement addressed, files to modify/create, required tests, and dependencies.
 
 ## 1. Core Types and Error Classes
+
 - **Task:** Review and extend core types and error hierarchy to ensure all required error codes, details, and subclasses are present. **[COMPLETE]**
   - **Spec:** Core/spec.md (Error Hierarchy)
   - **Files:** src/core/types.ts
@@ -10,6 +11,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - **Dependencies:** None
 
 ## 2. File Validation and Target Parsing Utilities
+
 - **Task:** Implement file validation (format, size, existence) and target parsing (URL, shorthand, repo context). **[COMPLETE]**
   - **Spec:** Core/spec.md (File Validation, Target Parsing)
   - **Files:** src/core/types.ts (types), src/core/validation.ts (new), src/core/target.ts (new)
@@ -17,6 +19,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - **Dependencies:** Core types
 
 ## 3. Upload Strategies
+
 - **Task:** Implement upload strategies: release-asset (official API), browser-session, cookie-extraction, repo-branch. Start with release-asset. **[COMPLETE]**
   - **Spec:** Core/spec.md (Strategy Interface, Release Asset Strategy, etc.)
   - **Files:** src/core/strategies/releaseAsset.ts (new), src/core/strategies/browserSession.ts (new), src/core/strategies/cookieExtraction.ts (new), src/core/strategies/repoBranch.ts (new)
@@ -24,6 +27,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - **Dependencies:** Validation, target parsing
 
 ## 4. Strategy Selection and Fallback Logic
+
 - **Task:** Implement automatic and explicit strategy selection with fallback order. **[COMPLETE]**
   - **Spec:** Core/spec.md (Strategy Selection and Fallback)
   - **Files:** src/core/upload.ts
@@ -31,6 +35,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - **Dependencies:** All strategies
 
 ## 5. CLI Commands
+
 - **Task:** Implement CLI commands: upload, login, config, mcp. Support all required flags, output formats, error codes, and environment/config overrides. **[COMPLETE]**
   - **Spec:** CLI/spec.md
   - **Files:** src/cli/index.ts, src/cli/commands/login.ts
@@ -51,6 +56,7 @@ This plan lists prioritized tasks required to bring the implementation into full
       - MCP `check_auth` / `list_strategies` / strategy selection (auto-uses saved session)
 
 ## 6. MCP Server
+
 - **Task:** Implement MCP server with stdio and HTTP transports, tool registration, and all required tools (upload_image, login, check_auth, list_strategies). **[COMPLETE]**
   - **Spec:** MCP/spec.md
   - **Files:** src/mcp/index.ts (full implementation with StdioServerTransport and HTTP server), src/cli/commands/mcp.ts (integrated with CLI)
@@ -60,18 +66,20 @@ This plan lists prioritized tasks required to bring the implementation into full
   - **Dependencies:** Core library
 
 ## 7. ESLint Configuration
+
 - **Task:** Create ESLint v9 configuration for proper linting of source and test code. **[COMPLETE]**
   - **Files:** eslint.config.js (new)
   - **Details:** Configured for Node.js globals, test globals (vitest), TypeScript strict mode, proper error levels for src vs test
   - **Validation:** `npm run lint` passes with 44 warnings (test code only, acceptable)
 
 ## 8. CI/CD and Release Configuration
+
 - **Task:** Ensure CI pipeline, linting, typecheck, build, test, release, and dependabot configs are present and compliant. **[COMPLETE]**
   - **Spec:** CI-CD/spec.md
   - **Files:** .github/workflows/ci.yml, .github/workflows/release.yml, .github/dependabot.yml, commitlint.config.js, package.json, tsconfig.json
   - **Tests:** CI runs, lint/typecheck/build/test scripts
   - **Dependencies:** All code
-  - **Notes:** 
+  - **Notes:**
     - Added commitlint.config.js with conventional commits validation (types: feat, fix, docs, style, refactor, perf, test, build, ci, chore)
     - Added commitlint job to CI workflow that validates commit messages on pull requests
     - CI pipeline includes lint, typecheck, build, test, and E2E stages with matrix testing (Node 20/22, Ubuntu/macOS)
@@ -82,6 +90,7 @@ This plan lists prioritized tasks required to bring the implementation into full
       - @semantic-release/github: Creates GitHub releases with auto-generated notes
 
 ## 9. Documentation
+
 - **Task:** Update AGENTS.md, README.md, and add/extend JSDoc comments for public APIs. **[COMPLETE]**
   - **Spec:** CLI/spec.md, CI-CD/spec.md, Ralph-loop/spec.md
   - **Files:** AGENTS.md, README.md, src/
@@ -95,6 +104,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Documentation follows conventions specified in CLI/spec.md requirement
 
 ## 10. Testing Coverage and Organization
+
 - **Task:** Ensure ≥90% line coverage, proper test organization, and snapshot tests for CLI output. **[COMPLETE]**
   - **Spec:** Testing/spec.md
   - **Files:** test/unit/, test/integration/, test/e2e/, test/fixtures/
@@ -139,6 +149,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Hardened `releaseAsset` error mapping to use HTTP status/headers (including rate-limit detection) and switched asset upload to buffer-based reads to avoid stream cleanup races in tests.
 
 ## 11. E2E Tests
+
 - **Task:** Implement E2E tests for upload strategies against real GitHub infrastructure. **[COMPLETE]**
   - **Spec:** Testing/spec.md (E2E Tests requirement)
   - **Files:** test/e2e/upload.test.ts, test/fixtures/test-image.png
@@ -157,10 +168,11 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Test isolation: uses dedicated test repository via E2E_TEST_REPO env var
 
 ## 12. Global CLI Options Compliance
+
 - **Task:** Complete and validate global CLI option behavior (`--verbose`, `--quiet`, `--no-color`) across command execution paths. **[COMPLETE]**
   - **Spec:** CLI/spec.md (Global CLI Options)
   - **Files:** src/cli/output.ts (new), src/cli/index.ts, src/cli/commands/upload.ts, src/cli/commands/login.ts, src/cli/commands/config.ts, src/cli/commands/mcp.ts
-  - **Tests:** test/integration/cli/globalOptions.test.ts (new), test/integration/cli/login.test.ts, test/integration/cli/__snapshots__/snapshot.test.ts.snap
+  - **Tests:** test/integration/cli/globalOptions.test.ts (new), test/integration/cli/login.test.ts, test/integration/cli/**snapshots**/snapshot.test.ts.snap
   - **Notes:**
     - Extracted CLI output state/helpers into `src/cli/output.ts` so command modules can use debug/info without importing the CLI entrypoint (prevents side-effectful `program.parse()` during command-module tests).
     - Fixed CLI package metadata resolution in `src/cli/index.ts` for both source and dist execution paths.
@@ -171,6 +183,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Updated login status integration assertions to expect authentication exit code `2` per spec.
 
 ## 13. MCP upload format contract compliance
+
 - **Task:** Align `upload_image` MCP tool output format contract and error signaling with OpenSpec. **[COMPLETE]**
   - **Spec:** MCP/spec.md (Upload Image Tool - Tool definition, Upload error)
   - **Files:** src/mcp/index.ts
@@ -181,6 +194,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Error responses from `handleUploadImage` now consistently set `isError: true`, including validation/auth failures and runtime exceptions.
 
 ## 14. Release Artifacts
+
 - **Task:** Implement platform-specific binary generation and release configuration. **[COMPLETE]**
   - **Spec:** CI-CD/spec.md (Release Artifacts, gh extension compatibility)
   - **Files:** package.json, .github/workflows/release.yml, gh-extension, gh-attach
@@ -193,6 +207,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Ensured `gh-extension` and `gh-attach` are included in the npm package (`package.json` `bin` + `files`) so installs don’t miss required entry points.
 
 ## 15. MCP Streamable HTTP Transport Compliance
+
 - **Task:** Align HTTP transport with MCP Streamable HTTP spec (JSON-RPC POST to `/` + SSE GET/DELETE) and advertise `{ tools: {} }`. **[COMPLETE]**
   - **Spec:** MCP/spec.md (Server Identity, Streamable HTTP Transport)
   - **Files:** src/mcp/index.ts
@@ -202,6 +217,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Integration test validates `initialize`, `tools/list`, and `tools/call` over Streamable HTTP, plus `/health`.
 
 ## 16. Ralph Loop Fitness Evaluation Timeout Resilience
+
 - **Task:** Prevent fitness-evaluation fallbacks caused by `session.idle` timeouts by using a bounded timeout derived from loop config and one retry on timeout. **[COMPLETE]**
   - **Spec:** Ralph-loop/spec.md (Fitness evaluation process), Logging/spec.md (Fitness evaluation logging)
   - **Files:** src/ralph/evaluation.ts (new), ralph-loop.ts
@@ -214,6 +230,7 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Validation run after this change: `typecheck`, `lint` (warnings only), `test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
 
 ## 17. Ralph Loop CI Gating and Reporting Compliance
+
 - **Task:** Implement CI status persistence, prompt gating, and CI visibility/reporting in the Ralph loop. **[COMPLETE]**
   - **Spec:** CI-gating/spec.md (CI Status Tracking, CI Gating Logic, CI Fix Tracking, GitHub Reporting, Lint Warning Accumulation), Ralph-loop/spec.md (GitHub issue labels)
   - **Files:** ralph-loop.ts, src/ralph/ci-gating.ts (new), test/unit/ralph/ci-gating.test.ts (new)
@@ -229,6 +246,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
 
 ## 18. Ralph Loop Evaluation Timeout Detection Hardening
+
 - **Task:** Harden detection of Copilot `session.idle` timeout error shapes so evaluation retry logic reliably triggers instead of falling back to `aggregate=0`. **[COMPLETE]**
   - **Spec:** Ralph-loop/spec.md (Fitness evaluation process, scoring card continuity)
   - **Files:** src/ralph/evaluation.ts
@@ -241,6 +259,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
 
 ## 19. Ralph Loop Evaluation JSON Extraction Resilience
+
 - **Task:** Harden fitness-evaluation response parsing so valid scoring JSON is recovered from mixed prose/code-fence outputs instead of triggering fallback aggregate scoring. **[COMPLETE]**
   - **Spec:** Ralph-loop/spec.md (Evaluation JSON schema, Fitness evaluation process), Logging/spec.md (score trajectory continuity)
   - **Files:** src/ralph/evaluation.ts, ralph-loop.ts
@@ -254,6 +273,7 @@ This plan lists prioritized tasks required to bring the implementation into full
   - Validation run after this change: `npm run typecheck`, `npm run lint`, `npm test`, and `npm audit --production` all pass; audit reports 0 vulnerabilities.
 
 ## 20. Ralph Loop Quiet-Mode Debug Log Filtering Compliance
+
 - **Task:** Enforce `RALPH_QUIET=1` behavior so `[DEBUG]` lines are suppressed while other log levels remain visible. **[COMPLETE]**
   - **Spec:** Logging/spec.md (Log Level Filtering → Quiet mode)
   - **Files:** src/ralph/logging.ts (new), ralph-loop.ts

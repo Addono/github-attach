@@ -111,7 +111,9 @@ async function loadState(): Promise<RalphState> {
     const parsed = JSON.parse(raw) as Partial<RalphState>;
     return {
       currentIteration:
-        typeof parsed.currentIteration === "number" ? parsed.currentIteration : 0,
+        typeof parsed.currentIteration === "number"
+          ? parsed.currentIteration
+          : 0,
       currentModel:
         typeof parsed.currentModel === "string" ? parsed.currentModel : "",
       trackingIssueNumber:
@@ -280,7 +282,14 @@ async function collectSpecFiles(): Promise<string> {
   // Scan all subdirectories under openspec/specs/ automatically
   const baseDir = "openspec/specs";
   const possibleDirs = [
-    "core", "cli", "mcp", "testing", "ci-cd", "ralph-loop", "logging", "ci-gating",
+    "core",
+    "cli",
+    "mcp",
+    "testing",
+    "ci-cd",
+    "ralph-loop",
+    "logging",
+    "ci-gating",
   ];
   for (const dir of possibleDirs) {
     const path = `${baseDir}/${dir}/spec.md`;
@@ -385,7 +394,9 @@ Respond with ONLY a valid JSON object — no markdown, no code fences, no extra 
           buildHealth: clamp(parsed.buildHealth),
           aggregate: clamp(parsed.aggregate),
           notes:
-            typeof parsed.notes === "string" ? parsed.notes : "No notes provided",
+            typeof parsed.notes === "string"
+              ? parsed.notes
+              : "No notes provided",
           checklist: Array.isArray(parsed.checklist)
             ? parsed.checklist.map((item) => ({
                 requirement: String((item as ChecklistItem).requirement ?? ""),
@@ -547,21 +558,22 @@ function tryGitPush(): void {
   }
 }
 
-function ghExecWithRetry(
-  cmd: string,
-  maxAttempts = 3,
-  delayMs = 2000,
-): void {
+function ghExecWithRetry(cmd: string, maxAttempts = 3, delayMs = 2000): void {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       execSync(cmd, { encoding: "utf-8", timeout: 30_000 });
       return;
     } catch (err) {
       if (attempt === maxAttempts) throw err;
-      log(`gh command failed (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms…`, "WARN");
+      log(
+        `gh command failed (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms…`,
+        "WARN",
+      );
       // Synchronous sleep via a busy-wait — acceptable for a cli tool
       const end = Date.now() + delayMs;
-      while (Date.now() < end) { /* spin */ }
+      while (Date.now() < end) {
+        /* spin */
+      }
     }
   }
 }
@@ -596,7 +608,12 @@ async function postToGitHub(
 
     if (state.trackingIssueNumber) {
       // Post per-evaluation comment (uses --body-file to preserve newlines)
-      const comment = generateCommentBody(iteration, model, scores, state.ciStatus);
+      const comment = generateCommentBody(
+        iteration,
+        model,
+        scores,
+        state.ciStatus,
+      );
       ghWithBodyFile(
         `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
         comment,
@@ -611,7 +628,10 @@ async function postToGitHub(
         true,
       );
 
-      log(`Posted evaluation comment to issue #${state.trackingIssueNumber} (${scores.checklist.length} checklist items)`, "GITHUB");
+      log(
+        `Posted evaluation comment to issue #${state.trackingIssueNumber} (${scores.checklist.length} checklist items)`,
+        "GITHUB",
+      );
     }
   } catch (err) {
     log(`Failed to post to GitHub: ${err}`, "ERROR");
@@ -708,7 +728,9 @@ function formatToolArgs(toolName: string, args: unknown): string {
     case "intent": {
       const intent =
         a.intent ?? a.description ?? a.goal ?? a.plan ?? a.message ?? a.text;
-      return intent ? String(intent).slice(0, 200) : JSON.stringify(a).slice(0, 120);
+      return intent
+        ? String(intent).slice(0, 200)
+        : JSON.stringify(a).slice(0, 120);
     }
 
     // Git operations
@@ -731,13 +753,24 @@ function formatToolArgs(toolName: string, args: unknown): string {
     case "glob":
     case "find_files":
     case "list_dir": {
-      const pattern = String(a.pattern ?? a.glob ?? a.path ?? a.directory ?? "");
+      const pattern = String(
+        a.pattern ?? a.glob ?? a.path ?? a.directory ?? "",
+      );
       return pattern || JSON.stringify(a).slice(0, 120);
     }
 
     default:
       // Best-effort: pick whichever single string field looks most useful
-      for (const key of ["command", "query", "path", "message", "description", "prompt", "text", "input"]) {
+      for (const key of [
+        "command",
+        "query",
+        "path",
+        "message",
+        "description",
+        "prompt",
+        "text",
+        "input",
+      ]) {
         if (typeof a[key] === "string" && (a[key] as string).length > 0) {
           return `${key}=${String(a[key]).slice(0, 160)}`;
         }
@@ -886,10 +919,18 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
       const scoreHint = lastEval
         ? ` | Last score: ${lastEval.scores.aggregate}/100`
         : "";
-      log(`=== Iteration ${i} | Model: ${state.currentModel}${scoreHint} ===`, "ITER");
+      log(
+        `=== Iteration ${i} | Model: ${state.currentModel}${scoreHint} ===`,
+        "ITER",
+      );
       if (lastEval && lastEval.scores.checklist.length > 0) {
-        const worstItem = [...lastEval.scores.checklist].sort((a, b) => a.score - b.score)[0]!;
-        log(`Target this iteration: [${worstItem.score}/100] ${worstItem.requirement}`, "ITER");
+        const worstItem = [...lastEval.scores.checklist].sort(
+          (a, b) => a.score - b.score,
+        )[0]!;
+        log(
+          `Target this iteration: [${worstItem.score}/100] ${worstItem.requirement}`,
+          "ITER",
+        );
       }
       if (isCiBroken(state.ciStatus)) {
         await postCiBlockedNotification(state, config, i);
@@ -936,7 +977,10 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
         .sort((a, b) => b[1] - a[1])
         .map(([t, n]) => `${t}×${n}`)
         .join(", ");
-      log(`Iteration ${i} complete in ${elapsed}s | Tools used: ${toolSummary || "none"}`, "ITER");
+      log(
+        `Iteration ${i} complete in ${elapsed}s | Tools used: ${toolSummary || "none"}`,
+        "ITER",
+      );
 
       state.currentIteration = i;
       runCiCheck(i, state);
@@ -954,7 +998,8 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
         const delta = prevEval
           ? scores.aggregate - prevEval.scores.aggregate
           : null;
-        const deltaStr = delta !== null ? ` (${delta >= 0 ? "+" : ""}${delta} vs prev)` : "";
+        const deltaStr =
+          delta !== null ? ` (${delta >= 0 ? "+" : ""}${delta} vs prev)` : "";
 
         const evaluation: Evaluation = {
           iteration: i,
@@ -966,9 +1011,9 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
 
         log(
           `Scores: aggregate=${scores.aggregate}/100${deltaStr}\n` +
-          `  spec=${scores.specCompliance}/100  tests=${scores.testCoverage}/100  ` +
-          `quality=${scores.codeQuality}/100  build=${scores.buildHealth}/100\n` +
-          `  notes: ${scores.notes}`,
+            `  spec=${scores.specCompliance}/100  tests=${scores.testCoverage}/100  ` +
+            `quality=${scores.codeQuality}/100  build=${scores.buildHealth}/100\n` +
+            `  notes: ${scores.notes}`,
           "EVAL",
         );
 

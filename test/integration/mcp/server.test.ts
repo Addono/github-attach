@@ -127,7 +127,9 @@ describe("MCP Server Integration", () => {
 
     it("should mock Server class for stdio initialization", () => {
       // Verify mocked Server exists and can be instantiated
-      const server = new (Server as unknown as new (opts: Record<string, string>) => Record<string, unknown>)({
+      const server = new (Server as unknown as new (
+        opts: Record<string, string>,
+      ) => Record<string, unknown>)({
         name: "test",
         version: "1.0.0",
       });

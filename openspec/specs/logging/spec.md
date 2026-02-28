@@ -23,7 +23,7 @@ Every log line SHALL carry a timestamp and a severity/category level.
 
 - GIVEN a message that contains embedded newlines
 - THEN the first line SHALL use the standard format
-- AND every continuation line SHALL be prefixed with `  | ` so `tail -f` stays readable:
+- AND every continuation line SHALL be prefixed with ` |` so `tail -f` stays readable:
   ```
   [2026-02-28T11:45:00.000Z] [EVAL] Scores: aggregate=75/100 (+3 vs prev)
     | spec=72/100  tests=78/100  quality=70/100  build=88/100
@@ -60,10 +60,13 @@ Each iteration SHALL be clearly delimited in the log so the observer can see wor
 
 - GIVEN iteration N begins
 - THEN the log SHALL include one `[ITER]` line:
+
   ```
   === Iteration {N} | Model: {model} | Last score: {aggregate}/100 ===
   ```
+
   - `Last score` is omitted if no evaluation has run yet
+
 - AND if the last evaluation had a lowest-scoring checklist item, log:
   ```
   [ITER] Target this iteration: [{score}/100] {requirement}
@@ -246,7 +249,6 @@ The system MAY support filtering logs by level.
 - GIVEN the environment variable `RALPH_QUIET=1` is set
 - THEN `[DEBUG]` lines SHALL be suppressed
 - AND all other levels SHALL remain visible
-
 
 ## Purpose
 

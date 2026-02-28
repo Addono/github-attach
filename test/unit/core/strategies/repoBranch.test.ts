@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createRepoBranchStrategy } from "../../../../src/core/strategies/repoBranch.js";
 import {
   AuthenticationError,
+  UploadError,
 } from "../../../../src/core/types.js";
 import type { UploadTarget } from "../../../../src/core/types.js";
 
@@ -40,7 +41,6 @@ vi.mock("@octokit/rest", () => {
 vi.mock("fs", () => ({
   readFileSync: vi.fn(() => Buffer.from("fake-image-data").toString("base64")),
 }));
-
 
 const mockTarget: UploadTarget = {
   owner: "testowner",
@@ -139,7 +139,9 @@ describe("Repository Branch Strategy", () => {
       const strategy = createRepoBranchStrategy("valid-token");
       const mockFilePath = "/tmp/test.png";
 
-      const errNotFound = Object.assign(new Error("404 Not Found"), { status: 404 });
+      const errNotFound = Object.assign(new Error("404 Not Found"), {
+        status: 404,
+      });
       mockOctokitInstance.rest.repos.getBranch.mockRejectedValue(errNotFound);
 
       mockOctokitInstance.rest.git.createBlob.mockResolvedValue({
@@ -174,6 +176,70 @@ describe("Repository Branch Strategy", () => {
 
       await expect(strategy.upload(mockFilePath, mockTarget)).rejects.toThrow(
         AuthenticationError,
+      );
+    });
+
+    it("wraps generic error as UploadError BRANCH_ACCESS_FAILED", async () => {
+      const strategy = createRepoBranchStrategy("token");
+      mockOctokitInstance.rest.repos.getBranch.mockRejectedValue(
+        "string error",
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "BRANCH_ACCESS_FAILED",
+      );
+    });
+
+    it("throws AuthenticationError when branch creation fails after 404", async () => {
+      const strategy = createRepoBranchStrategy("token");
+      const err404 = Object.assign(new Error("404 Not Found"), { status: 404 });
+      mockOctokitInstance.rest.repos.getBranch.mockRejectedValue(err404);
+      mockOctokitInstance.rest.git.createBlob.mockRejectedValue(
+        new Error("Permission denied"),
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: AuthenticationError) =>
+          err instanceof AuthenticationError &&
+          err.code === "INSUFFICIENT_PERMISSIONS",
+      );
+    });
+
+    it("throws UploadError BRANCH_ACCESS_FAILED on non-404 non-403 getBranch error", async () => {
+      const strategy = createRepoBranchStrategy("token");
+      const err500 = Object.assign(new Error("500 Server Error"), {
+        status: 500,
+      });
+      mockOctokitInstance.rest.repos.getBranch.mockRejectedValue(err500);
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "BRANCH_ACCESS_FAILED",
+      );
+    });
+
+    it("throws UploadError FILE_COMMIT_FAILED when commitFile fails", async () => {
+      const strategy = createRepoBranchStrategy("token");
+      const mockBranch = { commit: { sha: "abc123" } };
+      mockOctokitInstance.rest.repos.getBranch.mockResolvedValue({
+        data: mockBranch,
+      });
+      mockOctokitInstance.rest.git.createBlob.mockRejectedValue(
+        new Error("Blob creation failed"),
+      );
+
+      await expect(
+        strategy.upload("/tmp/test.png", mockTarget),
+      ).rejects.toSatisfy(
+        (err: UploadError) =>
+          err instanceof UploadError && err.code === "FILE_COMMIT_FAILED",
       );
     });
   });

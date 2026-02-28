@@ -20,7 +20,9 @@ export const releaseAssetError422Validation = {
         status: 422,
         json: {
           message: "Validation Failed",
-          errors: [{ resource: "Release", field: "tag_name", code: "already_exists" }],
+          errors: [
+            { resource: "Release", field: "tag_name", code: "already_exists" },
+          ],
         },
       },
     },

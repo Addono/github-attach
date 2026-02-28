@@ -18,13 +18,19 @@ import { releaseAssetError500ServerError } from "../../fixtures/release-asset/er
 
 const server = setupServer();
 
-function makeTempPng(filename = "test-image.png"): { dir: string; filePath: string } {
+function makeTempPng(filename = "test-image.png"): {
+  dir: string;
+  filePath: string;
+} {
   const dir = join(tmpdir(), `gh-attach-msw-${Date.now()}`);
   mkdirSync(dir, { recursive: true });
   const filePath = join(dir, filename);
 
   // Minimal PNG header bytes
-  writeFileSync(filePath, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  writeFileSync(
+    filePath,
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  );
 
   return { dir, filePath };
 }

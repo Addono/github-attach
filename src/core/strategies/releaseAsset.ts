@@ -12,7 +12,10 @@ function getHttpStatus(err: unknown): number | undefined {
   return typeof status === "number" ? status : undefined;
 }
 
-function getResponseHeader(err: unknown, headerName: string): string | undefined {
+function getResponseHeader(
+  err: unknown,
+  headerName: string,
+): string | undefined {
   if (typeof err !== "object" || err === null) return undefined;
   const response = (err as { response?: unknown }).response;
   if (typeof response !== "object" || response === null) return undefined;
@@ -28,7 +31,9 @@ function getResponseHeader(err: unknown, headerName: string): string | undefined
 
 function isRateLimitError(err: unknown): boolean {
   const message =
-    err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+    err instanceof Error
+      ? err.message.toLowerCase()
+      : String(err).toLowerCase();
   if (message.includes("rate limit")) return true;
 
   const remaining = getResponseHeader(err, "x-ratelimit-remaining");
@@ -216,12 +221,16 @@ async function findOrCreateAssetsRelease(
 
     if (status === 403) {
       if (isRateLimitError(err)) {
-        throw new UploadError("GitHub API rate limit exceeded.", "RATE_LIMIT_EXCEEDED", {
-          target,
-          status,
-          reset: getRateLimitReset(err),
-          originalError: String(err),
-        });
+        throw new UploadError(
+          "GitHub API rate limit exceeded.",
+          "RATE_LIMIT_EXCEEDED",
+          {
+            target,
+            status,
+            reset: getRateLimitReset(err),
+            originalError: String(err),
+          },
+        );
       }
 
       throw new AuthenticationError(
@@ -300,12 +309,16 @@ async function uploadAsset(
     }
 
     if (status === 403 && isRateLimitError(err)) {
-      throw new UploadError("GitHub API rate limit exceeded.", "RATE_LIMIT_EXCEEDED", {
-        target,
-        status,
-        reset: getRateLimitReset(err),
-        originalError: String(err),
-      });
+      throw new UploadError(
+        "GitHub API rate limit exceeded.",
+        "RATE_LIMIT_EXCEEDED",
+        {
+          target,
+          status,
+          reset: getRateLimitReset(err),
+          originalError: String(err),
+        },
+      );
     }
 
     throw new UploadError(

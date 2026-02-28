@@ -3,10 +3,10 @@
 0c. Study `src/` and `test/` for reference.
 0d. Study AGENTS.md for build/test/lint commands.
 0e. IMPORTANT: If `npm audit --production` reports vulnerabilities, address them FIRST
-   before implementing features. Update to fixed versions and test thoroughly.
+before implementing features. Update to fixed versions and test thoroughly.
 0f. **If a `🎯 Score-Maximisation Context` section appears below, read it carefully.**
-   Your primary goal is to increase the aggregate fitness score.
-   Address the lowest-scoring checklist items BEFORE picking a new feature task.
+Your primary goal is to increase the aggregate fitness score.
+Address the lowest-scoring checklist items BEFORE picking a new feature task.
 
 1. Choose the most important incomplete item from IMPLEMENTATION_PLAN.md,
    **biased towards items that address regressions from the Score-Maximisation Context.**

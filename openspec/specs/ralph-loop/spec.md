@@ -246,9 +246,7 @@ The evaluation model SHALL produce a structured scoring card that walks through 
     "buildHealth": 0,
     "aggregate": 0,
     "notes": "one-sentence summary",
-    "checklist": [
-      { "requirement": "...", "score": 0, "reasoning": "..." }
-    ]
+    "checklist": [{ "requirement": "...", "score": 0, "reasoning": "..." }]
   }
   ```
 

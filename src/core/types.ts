@@ -129,14 +129,16 @@ export class ValidationError extends GhAttachError {
 
 /**
  * Thrown when no upload strategy is available.
+ * Lists what strategies were tried and why each was unavailable.
  */
 export class NoStrategyAvailableError extends GhAttachError {
-  constructor(tried: string[]) {
-    super(
-      `No upload strategy available. Tried: ${tried.join(", ")}`,
-      "NO_STRATEGY_AVAILABLE",
-      { tried },
-    );
+  constructor(
+    message: string,
+    tried: Array<{ strategy: string; reason: string }>,
+  ) {
+    super(message, "NO_STRATEGY_AVAILABLE", {
+      tried: tried.map((t) => `${t.strategy}: ${t.reason}`),
+    });
     this.name = "NoStrategyAvailableError";
   }
 }

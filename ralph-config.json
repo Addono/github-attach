@@ -9,9 +9,7 @@
     "claude-sonnet-4.6",
     "gemini-3.1-pro-preview"
   ],
-  "premiumModels": [
-    "claude-opus-4.6"
-  ],
+  "premiumModels": ["claude-opus-4.6"],
   "stallWindow": 2,
   "stallThreshold": 5,
   "evaluationModel": "claude-haiku-4.5",

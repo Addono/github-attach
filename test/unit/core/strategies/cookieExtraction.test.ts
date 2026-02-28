@@ -70,13 +70,21 @@ describe("Cookie Extraction Strategy", () => {
     vi.mocked(os.tmpdir).mockReturnValue("/tmp");
 
     // Default implementation for execFile mock to simulate success
-    execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
-      const callback = typeof args === "function" ? args : cb;
-      if (callback) {
-        callback(null, { stdout: "" });
-      }
-      return {} as Record<string, unknown>;
-    });
+    execFileMock.mockImplementation(
+      (
+        file: string,
+        args:
+          | string[]
+          | ((err: Error | null, result: { stdout: string }) => void),
+        cb?: (err: Error | null, result: { stdout: string }) => void,
+      ) => {
+        const callback = typeof args === "function" ? args : cb;
+        if (callback) {
+          callback(null, { stdout: "" });
+        }
+        return {} as Record<string, unknown>;
+      },
+    );
   });
 
   afterEach(() => {
@@ -241,11 +249,19 @@ Path=/opt/firefox/dev
       });
 
       // Update mock implementation for this test
-      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
-        const callback = typeof args === "function" ? args : cb;
-        callback?.(null, { stdout: "user_session\tvalid_session\n" });
-        return {} as Record<string, unknown>;
-      });
+      execFileMock.mockImplementation(
+        (
+          file: string,
+          args:
+            | string[]
+            | ((err: Error | null, result: { stdout: string }) => void),
+          cb?: (err: Error | null, result: { stdout: string }) => void,
+        ) => {
+          const callback = typeof args === "function" ? args : cb;
+          callback?.(null, { stdout: "user_session\tvalid_session\n" });
+          return {} as Record<string, unknown>;
+        },
+      );
 
       const result =
         await cookieExtractionInternals.extractCookiesFromDatabase(source);
@@ -269,11 +285,19 @@ Path=/opt/firefox/dev
         hostColumn: "host_key" as const,
       };
 
-      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
-        const callback = typeof args === "function" ? args : cb;
-        callback?.(new Error("sqlite error"));
-        return {} as Record<string, unknown>;
-      });
+      execFileMock.mockImplementation(
+        (
+          file: string,
+          args:
+            | string[]
+            | ((err: Error | null, result: { stdout: string }) => void),
+          cb?: (err: Error | null, result: { stdout: string }) => void,
+        ) => {
+          const callback = typeof args === "function" ? args : cb;
+          callback?.(new Error("sqlite error"));
+          return {} as Record<string, unknown>;
+        },
+      );
 
       vi.mocked(fs.copyFileSync).mockImplementation(() => {});
       vi.mocked(fs.unlinkSync).mockImplementation(() => {});
@@ -302,17 +326,25 @@ Path=/opt/firefox/dev
         );
       });
 
-      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
-        const callback = typeof args === "function" ? args : cb;
-        // Only return cookies for chrome to simulate finding it
-        const argsList = args as string[];
-        if (argsList && argsList[3] && argsList[3].includes("host_key")) {
-          callback?.(null, { stdout: "user_session\tvalid_session\n" });
-        } else {
-          callback?.(new Error("No cookies"));
-        }
-        return {} as Record<string, unknown>;
-      });
+      execFileMock.mockImplementation(
+        (
+          file: string,
+          args:
+            | string[]
+            | ((err: Error | null, result: { stdout: string }) => void),
+          cb?: (err: Error | null, result: { stdout: string }) => void,
+        ) => {
+          const callback = typeof args === "function" ? args : cb;
+          // Only return cookies for chrome to simulate finding it
+          const argsList = args as string[];
+          if (argsList && argsList[3] && argsList[3].includes("host_key")) {
+            callback?.(null, { stdout: "user_session\tvalid_session\n" });
+          } else {
+            callback?.(new Error("No cookies"));
+          }
+          return {} as Record<string, unknown>;
+        },
+      );
 
       vi.mocked(fs.copyFileSync).mockImplementation(() => {});
       vi.mocked(fs.unlinkSync).mockImplementation(() => {});
@@ -326,11 +358,19 @@ Path=/opt/firefox/dev
         return (p as string).includes(".config/google-chrome");
       });
 
-      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
-        const callback = typeof args === "function" ? args : cb;
-        callback?.(new Error("Database locked"));
-        return {} as Record<string, unknown>;
-      });
+      execFileMock.mockImplementation(
+        (
+          file: string,
+          args:
+            | string[]
+            | ((err: Error | null, result: { stdout: string }) => void),
+          cb?: (err: Error | null, result: { stdout: string }) => void,
+        ) => {
+          const callback = typeof args === "function" ? args : cb;
+          callback?.(new Error("Database locked"));
+          return {} as Record<string, unknown>;
+        },
+      );
 
       vi.mocked(fs.copyFileSync).mockImplementation(() => {});
       vi.mocked(fs.unlinkSync).mockImplementation(() => {});
@@ -353,16 +393,24 @@ Path=/opt/firefox/dev
         );
       });
 
-      execFileMock.mockImplementation((file: string, args: string[] | ((err: Error | null, result: { stdout: string }) => void), cb?: (err: Error | null, result: { stdout: string }) => void) => {
-        const callback = typeof args === "function" ? args : cb;
-        const argsList = args as string[];
-        if (argsList && argsList[3] && argsList[3].includes("host_key")) {
-          callback?.(null, { stdout: "user_session\tvalid_session\n" });
-        } else {
-          callback?.(new Error("No cookies"));
-        }
-        return {} as Record<string, unknown>;
-      });
+      execFileMock.mockImplementation(
+        (
+          file: string,
+          args:
+            | string[]
+            | ((err: Error | null, result: { stdout: string }) => void),
+          cb?: (err: Error | null, result: { stdout: string }) => void,
+        ) => {
+          const callback = typeof args === "function" ? args : cb;
+          const argsList = args as string[];
+          if (argsList && argsList[3] && argsList[3].includes("host_key")) {
+            callback?.(null, { stdout: "user_session\tvalid_session\n" });
+          } else {
+            callback?.(new Error("No cookies"));
+          }
+          return {} as Record<string, unknown>;
+        },
+      );
 
       const strategy = createCookieExtractionStrategy();
       const result = await strategy.upload("file.png", mockTarget);

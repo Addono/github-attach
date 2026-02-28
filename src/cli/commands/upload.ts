@@ -11,6 +11,7 @@ import { validateFile } from "../../core/validation.js";
 import { upload } from "../../core/upload.js";
 import { loadConfig } from "./config.js";
 import { debug } from "../output.js";
+import { ValidationError, NoStrategyAvailableError } from "../../core/types.js";
 import type { UploadStrategy } from "../../core/types.js";
 
 interface UploadOptions {
@@ -71,7 +72,10 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
   // Handle stdin input
   if (options.stdin) {
     if (!options.filename) {
-      throw new Error("--filename is required when using --stdin");
+      throw new ValidationError(
+        "--filename is required when using --stdin",
+        "MISSING_FILENAME",
+      );
     }
     const stdinBuffer = await readStdin();
     const tempFile = join(tmpdir(), options.filename);
@@ -80,8 +84,9 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
   }
 
   if (files.length === 0) {
-    throw new Error(
+    throw new ValidationError(
       "At least one file is required. Use --stdin with --filename to read from stdin.",
+      "NO_FILES",
     );
   }
 
@@ -93,26 +98,18 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
       targetRef = defaultTarget;
       debug(`Using default target from config: ${targetRef}`);
     } else {
-      throw new Error(
+      throw new ValidationError(
         "Target is required. Use --target or set default-target in config.",
+        "MISSING_TARGET",
       );
     }
   }
 
   // Parse target
-  let uploadTarget;
-  try {
-    uploadTarget = parseTarget(targetRef);
-  } catch (err) {
-    if (err instanceof Error) {
-      throw new Error(`Invalid target: ${err.message}`);
-    }
-    throw err;
-  }
+  const uploadTarget = parseTarget(targetRef);
 
   // Resolve strategy: CLI option > environment variable > config > default
-  const explicitStrategy =
-    options.strategy || process.env.GH_ATTACH_STRATEGY;
+  const explicitStrategy = options.strategy || process.env.GH_ATTACH_STRATEGY;
 
   // Build strategies list
   const strategies: UploadStrategy[] = [];
@@ -122,9 +119,10 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
     debug(`Using explicit strategy: ${explicitStrategy}`);
     const strategy = createStrategy(explicitStrategy);
     if (!strategy) {
-      throw new Error(
+      throw new NoStrategyAvailableError(
         `Strategy '${explicitStrategy}' is not available. ` +
           "Check that required environment variables are set.",
+        [{ strategy: explicitStrategy, reason: "not available" }],
       );
     }
     strategies.push(strategy);
@@ -146,8 +144,12 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
   }
 
   if (strategies.length === 0) {
-    throw new Error(
+    throw new NoStrategyAvailableError(
       "No authentication available. Set GITHUB_TOKEN (or GH_TOKEN), GH_ATTACH_COOKIES, or run 'gh-attach login' to save a browser session.",
+      DEFAULT_STRATEGY_ORDER.map((s) => ({
+        strategy: s,
+        reason: "not configured",
+      })),
     );
   }
 
@@ -155,26 +157,12 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
   const results = [];
   try {
     for (const file of files) {
-      // Validate file
-      try {
-        await validateFile(file);
-      } catch (err) {
-        if (err instanceof Error) {
-          throw new Error(`File validation failed: ${err.message}`);
-        }
-        throw err;
-      }
+      // Validate file — errors propagate with original types
+      await validateFile(file);
 
-      // Upload file
-      try {
-        const result = await upload(file, uploadTarget, strategies);
-        results.push(result);
-      } catch (err) {
-        if (err instanceof Error) {
-          throw new Error(`Upload failed: ${err.message}`);
-        }
-        throw err;
-      }
+      // Upload file — errors propagate with original types
+      const result = await upload(file, uploadTarget, strategies);
+      results.push(result);
     }
 
     // Output results

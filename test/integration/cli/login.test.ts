@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { unlinkSync, existsSync, readdirSync, statSync, rmdirSync, readFileSync } from "fs";
+import {
+  unlinkSync,
+  existsSync,
+  readdirSync,
+  statSync,
+  rmdirSync,
+  readFileSync,
+} from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { loginCommand } from "../../../src/cli/commands/login.js";
