@@ -210,6 +210,68 @@ The system SHALL include well-crafted prompt files.
   6. Update `IMPLEMENTATION_PLAN.md`
   7. Commit with a descriptive conventional commit message
 
+### Requirement: Evaluation Scoring Card
+
+The evaluation model SHALL produce a structured scoring card that walks through every spec requirement individually, providing explicit evidence and reasoning for each score.
+
+#### Scenario: Full checklist traversal
+
+- GIVEN a fitness evaluation is triggered
+- WHEN the evaluation model runs
+- THEN it SHALL enumerate every named requirement from every spec file
+- AND for each requirement it SHALL produce a `ChecklistItem`:
+  - `requirement` — the short name / scenario title
+  - `score` — an integer 0–100
+  - `reasoning` — one-to-three sentences of evidence from the build/test/lint output or source code
+- AND it SHALL NOT skip or bundle requirements; each scenario gets its own row
+
+#### Scenario: Supported scoring decisions
+
+- GIVEN a checklist item
+- THEN the score SHALL be supported by at least one of:
+  - A direct reference to observed output (e.g. "Build output shows 0 errors")
+  - A reference to a specific source file and behaviour
+  - An explicit statement of what is missing or broken when the score is < 80
+
+#### Scenario: Evaluation JSON schema
+
+- GIVEN the evaluation response
+- THEN the JSON SHALL conform to:
+
+  ```json
+  {
+    "specCompliance": 0,
+    "testCoverage": 0,
+    "codeQuality": 0,
+    "buildHealth": 0,
+    "aggregate": 0,
+    "notes": "one-sentence summary",
+    "checklist": [
+      { "requirement": "...", "score": 0, "reasoning": "..." }
+    ]
+  }
+  ```
+
+#### Scenario: GitHub comment structure
+
+- GIVEN a completed evaluation with a scoring card
+- WHEN a comment is posted to the tracking issue
+- THEN the comment SHALL start with a **summary block** containing:
+  - The aggregate score as a bold heading
+  - The `notes` field as a single-sentence verdict
+  - A compact score table (Spec / Tests / Quality / Build / Aggregate)
+- AND the comment SHALL then contain a collapsible `<details>` accordion titled
+  `📋 Detailed Checklist Scoring (N items)` where N is the count of checklist items
+- AND inside the accordion there SHALL be a markdown table:
+
+  ```
+  | Requirement | Score | Reasoning |
+  |-------------|-------|-----------|
+  | ...         | N/100 | ...       |
+  ```
+
+- AND the rows SHALL be ordered by score ascending so regressions appear first
+
 ### Requirement: AGENTS.md
 
 The system SHALL include a concise AGENTS.md file.

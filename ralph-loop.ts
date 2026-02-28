@@ -27,6 +27,12 @@ interface RalphConfig {
   timeout: number;
 }
 
+interface ChecklistItem {
+  requirement: string;
+  score: number;
+  reasoning: string;
+}
+
 interface FitnessScores {
   specCompliance: number;
   testCoverage: number;
@@ -34,6 +40,7 @@ interface FitnessScores {
   buildHealth: number;
   aggregate: number;
   notes: string;
+  checklist: ChecklistItem[];
 }
 
 interface Evaluation {
@@ -172,14 +179,24 @@ async function evaluateFitness(
   const testResult = runCommand("npm test 2>&1");
   const lintResult = runCommand("npm run lint 2>&1");
 
-  const evalPrompt = `You are evaluating a TypeScript project's implementation against its OpenSpec specifications.
+  const evalPrompt = `You are an automated fitness evaluator for a TypeScript project.
+Your job is to score the implementation against the OpenSpec specifications below.
 
-Score the implementation on a 0-100 scale across these dimensions:
-- **specCompliance**: How well does the code match the specifications?
-- **testCoverage**: Are tests present and passing?
-- **codeQuality**: Clean code, error handling, documentation?
-- **buildHealth**: Does the project build and lint cleanly?
-- **aggregate**: Weighted average (spec: 40%, tests: 25%, quality: 20%, build: 15%)
+## Instructions
+
+1. Read every named requirement and scenario in the specifications.
+2. For EACH requirement/scenario produce a checklist entry with:
+   - "requirement": short name such as "Ralph Loop Core – Loop execution"
+   - "score": integer 0-100
+   - "reasoning": 1-3 sentences of EVIDENCE referencing the build/test/lint output or specific behaviour observed. When score < 80, state explicitly what is missing or broken.
+3. Do NOT bundle multiple requirements into one entry.
+4. After the checklist, compute dimension averages:
+   - specCompliance: average of all spec-related checklist items
+   - testCoverage: average of all testing-related checklist items
+   - codeQuality: average of quality/lint/docs items
+   - buildHealth: average of build/CI items
+   - aggregate: weighted average (spec 40%, tests 25%, quality 20%, build 15%)
+5. Write a one-sentence "notes" verdict.
 
 ## Specifications
 ${specs}
@@ -193,8 +210,18 @@ ${testResult.output}
 ## Lint Output (${lintResult.success ? "SUCCESS" : "FAILED"})
 ${lintResult.output}
 
-Respond with ONLY a valid JSON object (no markdown, no code fences):
-{"specCompliance": N, "testCoverage": N, "codeQuality": N, "buildHealth": N, "aggregate": N, "notes": "brief summary"}`;
+Respond with ONLY a valid JSON object — no markdown, no code fences, no extra text:
+{
+  "specCompliance": 0,
+  "testCoverage": 0,
+  "codeQuality": 0,
+  "buildHealth": 0,
+  "aggregate": 0,
+  "notes": "one sentence",
+  "checklist": [
+    { "requirement": "...", "score": 0, "reasoning": "..." }
+  ]
+}`;
 
   const session = await client.createSession({
     model: config.evaluationModel,
@@ -202,14 +229,33 @@ Respond with ONLY a valid JSON object (no markdown, no code fences):
   });
 
   try {
-    const response = await session.sendAndWait({ prompt: evalPrompt }, 120_000);
+    const response = await session.sendAndWait({ prompt: evalPrompt }, 180_000);
 
-    // Extract JSON from assistant message content
-    const text = response?.data?.content ?? "";
-    const jsonMatch = text.match(/\{[\s\S]*"aggregate"[\s\S]*\}/);
+    // Strip optional markdown code fences then extract outermost JSON object
+    const raw = response?.data?.content ?? "";
+    const stripped = raw.replace(/^```(?:json)?\s*/im, "").replace(/```\s*$/im, "").trim();
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as FitnessScores;
+      const parsed = JSON.parse(jsonMatch[0]) as Partial<FitnessScores>;
+      const clamp = (n: unknown): number =>
+        Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
+      return {
+        specCompliance: clamp(parsed.specCompliance),
+        testCoverage: clamp(parsed.testCoverage),
+        codeQuality: clamp(parsed.codeQuality),
+        buildHealth: clamp(parsed.buildHealth),
+        aggregate: clamp(parsed.aggregate),
+        notes: typeof parsed.notes === "string" ? parsed.notes : "No notes provided",
+        checklist: Array.isArray(parsed.checklist)
+          ? parsed.checklist.map((item) => ({
+              requirement: String((item as ChecklistItem).requirement ?? ""),
+              score: clamp((item as ChecklistItem).score),
+              reasoning: String((item as ChecklistItem).reasoning ?? ""),
+            }))
+          : [],
+      };
     }
+    log(`Fitness evaluation: could not extract JSON from response (len=${raw.length})`);
   } catch (err) {
     log(`Fitness evaluation error: ${err}`);
   } finally {
@@ -224,6 +270,7 @@ Respond with ONLY a valid JSON object (no markdown, no code fences):
     buildHealth: buildResult.success ? 50 : 0,
     aggregate: 0,
     notes: "Evaluation failed — using fallback metrics",
+    checklist: [],
   };
 }
 
@@ -288,7 +335,26 @@ function generateCommentBody(
   model: string,
   scores: FitnessScores,
 ): string {
+  // Sort checklist ascending by score so regressions surface first
+  const sortedChecklist = [...(scores.checklist ?? [])].sort(
+    (a, b) => a.score - b.score,
+  );
+
+  const checklistRows = sortedChecklist
+    .map(
+      (item) =>
+        `| ${item.requirement} | ${item.score}/100 | ${item.reasoning.replace(/\|/g, "\\|")} |`,
+    )
+    .join("\n");
+
+  const accordion =
+    sortedChecklist.length > 0
+      ? `<details>\n<summary>📋 Detailed Checklist Scoring (${sortedChecklist.length} items)</summary>\n\n| Requirement | Score | Reasoning |\n|-------------|-------|-----------|\n${checklistRows}\n\n</details>`
+      : "_No checklist data available for this evaluation._";
+
   return `## Fitness Evaluation — Iteration ${iteration} — ${model}
+
+> **Aggregate: ${scores.aggregate}/100** — ${scores.notes}
 
 | Dimension | Score |
 |-----------|-------|
@@ -299,7 +365,8 @@ function generateCommentBody(
 | **Aggregate** | **${scores.aggregate}/100** |
 
 **Model**: ${model}
-**Notes**: ${scores.notes}
+
+${accordion}
 
 ---
 *Auto-generated by ralph-loop.ts at ${new Date().toISOString()}*`;
@@ -308,11 +375,14 @@ function generateCommentBody(
 // Write body to a temp file and pass via --body-file to avoid shell escaping newlines
 const BODY_TMP = join(tmpdir(), "ralph-gh-body.md");
 
-function ghWithBodyFile(cmd: string, body: string): void {
+function ghWithBodyFile(cmd: string, body: string, retry = false): void {
   writeFileSync(BODY_TMP, body, "utf-8");
-  execSync(`${cmd} --body-file ${JSON.stringify(BODY_TMP)}`, {
-    encoding: "utf-8",
-  });
+  const fullCmd = `${cmd} --body-file ${JSON.stringify(BODY_TMP)}`;
+  if (retry) {
+    ghExecWithRetry(fullCmd);
+  } else {
+    execSync(fullCmd, { encoding: "utf-8", timeout: 30_000 });
+  }
 }
 
 function tryGitPush(): void {
@@ -321,6 +391,25 @@ function tryGitPush(): void {
     log("Pushed to remote");
   } catch (err) {
     log(`Git push skipped/failed (non-fatal): ${err}`);
+  }
+}
+
+function ghExecWithRetry(
+  cmd: string,
+  maxAttempts = 3,
+  delayMs = 2000,
+): void {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      execSync(cmd, { encoding: "utf-8", timeout: 30_000 });
+      return;
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      log(`  gh command failed (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms…`);
+      // Synchronous sleep via a busy-wait — acceptable for a cli tool
+      const end = Date.now() + delayMs;
+      while (Date.now() < end) { /* spin */ }
+    }
   }
 }
 
@@ -342,11 +431,12 @@ async function postToGitHub(
       const result = execSync(
         `gh issue create --repo "${config.trackingRepo}" ` +
           `--title "[Ralph Loop] Fitness Tracking"`,
-        { encoding: "utf-8" },
+        { encoding: "utf-8", timeout: 30_000 },
       );
       const match = result.match(/\/issues\/(\d+)/);
       if (match) {
         state.trackingIssueNumber = parseInt(match[1]!, 10);
+        log(`Created tracking issue #${state.trackingIssueNumber}`);
       }
     }
 
@@ -356,6 +446,7 @@ async function postToGitHub(
       ghWithBodyFile(
         `gh issue comment ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
         comment,
+        true,
       );
 
       // Update issue body with rolling trend chart (also via --body-file)
@@ -363,6 +454,7 @@ async function postToGitHub(
       ghWithBodyFile(
         `gh issue edit ${state.trackingIssueNumber} --repo "${config.trackingRepo}"`,
         body,
+        true,
       );
 
       log(`Posted fitness score to issue #${state.trackingIssueNumber}`);
