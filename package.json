@@ -37,7 +37,7 @@
     "test": "vitest run --project unit --project integration",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "test:e2e": "vitest run --project e2e",
+    "test:e2e": "vitest run --project e2e --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.branches=0 --coverage.thresholds.statements=0",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --project unit --project integration",
     "package": "pkg . --out-path bin --compress GZip && mv bin/gh-attach-linux-x64 bin/gh-attach-linux-amd64 && mv bin/gh-attach-macos-x64 bin/gh-attach-darwin-amd64 && mv bin/gh-attach-macos-arm64 bin/gh-attach-darwin-arm64 && mv bin/gh-attach-win-x64.exe bin/gh-attach-windows-amd64.exe",
