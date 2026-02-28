@@ -13,10 +13,11 @@ import { createReleaseAssetStrategy } from "../../src/core/strategies/releaseAss
 import { createRepoBranchStrategy } from "../../src/core/strategies/repoBranch.js";
 import type { UploadTarget } from "../../src/core/types.js";
 
-// Skip E2E tests unless explicitly enabled
-const E2E_ENABLED = process.env.E2E_TESTS === "true";
+// Skip E2E tests unless explicitly enabled AND credentials are available
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const E2E_TEST_REPO = process.env.E2E_TEST_REPO;
+const E2E_ENABLED =
+  process.env.E2E_TESTS === "true" && !!GITHUB_TOKEN && !!E2E_TEST_REPO;
 
 const TEST_IMAGE_PATH = join(import.meta.dirname, "../fixtures/test-image.png");
 const ASSETS_TAG = "_gh-attach-assets";
