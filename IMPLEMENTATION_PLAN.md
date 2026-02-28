@@ -283,3 +283,21 @@ This plan lists prioritized tasks required to bring the implementation into full
     - Targets spec-compliance gap for the explicit quiet-mode requirement, improving scorecard confidence for logging behavior.
     - Added centralized `shouldEmitLog()` helper to keep filtering logic testable and avoid ad-hoc checks in the loop body.
     - `RALPH_QUIET=1` now suppresses only `DEBUG` events; informational, warning, and error logs are preserved for operator visibility.
+
+## 21. Library Public API Exports and Build Configuration
+
+- **Task:** Complete `src/index.ts` exports to expose the full public API surface required by Core/spec.md, migrate deprecated vitest workspace config, and add missing test coverage. **[COMPLETE]**
+  - **Spec:** Core/spec.md (Strategy Interface, Error Hierarchy, File Validation, Target Parsing), Testing/spec.md (Unit Test Coverage, Test Organization), CI-CD/spec.md (Build Stage)
+  - **Files:** src/index.ts, vitest.config.ts (new), vitest.workspace.ts (removed), test/unit/core/exports.test.ts (new), test/unit/core/session.test.ts (new)
+  - **Tests:** test/unit/core/exports.test.ts, test/unit/core/session.test.ts
+  - **Dependencies:** None
+  - **Notes:**
+    - **Targets Spec Compliance (0/100) and Build Health (50/100)** — the library entry point only exported `upload()` and 3 types. All spec-required public APIs were missing from the package surface.
+    - Added exports for all error classes (`GhAttachError`, `AuthenticationError`, `UploadError`, `ValidationError`, `NoStrategyAvailableError`).
+    - Added exports for all strategy factory functions (`createReleaseAssetStrategy`, `createBrowserSessionStrategy`, `createCookieExtractionStrategy`, `createRepoBranchStrategy`).
+    - Added exports for utility functions (`validateFile`, `parseTarget`).
+    - `dist/index.d.ts` grew from 2.62 KB to 6.96 KB reflecting the complete public API surface.
+    - Migrated from deprecated `vitest.workspace.ts` to `vitest.config.ts` with `test.projects`, eliminating the deprecation warning.
+    - Added `test/unit/core/exports.test.ts` to verify all library exports match spec requirements (10 tests).
+    - Added `test/unit/core/session.test.ts` for full session module coverage — `session.ts` now at 100% (up from 82%).
+    - All checks pass: `typecheck`, `lint`, `format:check`, `test` (273 tests), and `npm audit --production` (0 vulnerabilities).
