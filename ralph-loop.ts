@@ -358,11 +358,9 @@ async function ralphLoop(mode: Mode, maxIterationsOverride?: number) {
   try {
     const prompt = await readFile(promptFile, "utf-8");
 
-    for (
-      let i = state.currentIteration + 1;
-      i <= state.currentIteration + maxIterations;
-      i++
-    ) {
+    const startIteration = state.currentIteration + 1;
+    const endIteration = state.currentIteration + maxIterations;
+    for (let i = startIteration; i <= endIteration; i++) {
       if (shuttingDown) break;
 
       log(`\n=== Iteration ${i} | Model: ${state.currentModel} ===`);
