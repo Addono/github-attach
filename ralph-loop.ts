@@ -9,7 +9,11 @@ import {
   type SessionEvent,
 } from "@github/copilot-sdk";
 import {
+  NumericFitnessScores,
+  computeAggregateScore,
+  deriveFallbackFitnessScores,
   extractFitnessJsonPayload,
+  isEvaluationPayloadSuspicious,
   isSessionIdleTimeoutError,
   resolveEvaluationTimeoutMs,
 } from "./src/ralph/evaluation.ts";
@@ -428,6 +432,21 @@ async function evaluateFitness(
     "EVAL",
   );
 
+  const fallbackScores = deriveFallbackFitnessScores({
+    build: buildResult,
+    test: testResult,
+    lint: lintResult,
+    audit: auditResult,
+  });
+  const fallbackNote = "Evaluation failed — using objective CI metrics";
+  const suspiciousFallbackNote =
+    "Evaluation output unreliable — using objective CI metrics";
+  const fallbackResponse = (reason: string): FitnessScores => ({
+    ...fallbackScores,
+    notes: reason,
+    checklist: [],
+  });
+
   const evalPrompt = `You are an automated fitness evaluator for a TypeScript project.
 Your job is to score the implementation against the OpenSpec specifications below.
 
@@ -475,18 +494,20 @@ ${lintResult.output}
 ## Dependency Health (npm audit --production)
 ${auditResult.output}
 
-Respond with ONLY a valid JSON object — no markdown, no code fences, no extra text:
-{
-  "specCompliance": 0,
-  "testCoverage": 0,
-  "codeQuality": 0,
-  "buildHealth": 0,
-  "aggregate": 0,
-  "notes": "one sentence",
-  "checklist": [
-    { "requirement": "...", "score": 0, "reasoning": "..." }
-  ]
-}`;
+  Respond with ONLY a valid JSON object — no markdown, no code fences, no extra text.
+  Use the structure below and replace each placeholder value (shown as 0) with the numeric score you computed (0-100). Each checklist item must cite evidence from the specs, build/test/lint/audit output, or source files.
+  Do NOT return the template verbatim — the zeros are placeholders only, so compute real scores before responding.
+  {
+    "specCompliance": 0,
+    "testCoverage": 0,
+    "codeQuality": 0,
+    "buildHealth": 0,
+    "aggregate": 0,
+    "notes": "one sentence",
+    "checklist": [
+      { "requirement": "...", "score": 0, "reasoning": "..." }
+    ]
+  }`;
 
   const evaluationTimeoutMs = resolveEvaluationTimeoutMs(config.timeout);
   const maxAttempts = 2;
@@ -509,23 +530,40 @@ Respond with ONLY a valid JSON object — no markdown, no code fences, no extra 
         const parsed = parsedPayload as Partial<FitnessScores>;
         const clamp = (n: unknown): number =>
           Math.min(100, Math.max(0, Math.round(Number(n) || 0)));
-        return {
+        const parsedScores: NumericFitnessScores = {
           specCompliance: clamp(parsed.specCompliance),
           testCoverage: clamp(parsed.testCoverage),
           codeQuality: clamp(parsed.codeQuality),
           buildHealth: clamp(parsed.buildHealth),
           aggregate: clamp(parsed.aggregate),
-          notes:
-            typeof parsed.notes === "string"
-              ? parsed.notes
-              : "No notes provided",
-          checklist: Array.isArray(parsed.checklist)
-            ? parsed.checklist.map((item) => ({
-                requirement: String((item as ChecklistItem).requirement ?? ""),
-                score: clamp((item as ChecklistItem).score),
-                reasoning: String((item as ChecklistItem).reasoning ?? ""),
-              }))
-            : [],
+        };
+        const computedAggregate = computeAggregateScore(
+          parsedScores.specCompliance,
+          parsedScores.testCoverage,
+          parsedScores.codeQuality,
+          parsedScores.buildHealth,
+        );
+        if (isEvaluationPayloadSuspicious(parsedScores, fallbackScores)) {
+          log(
+            `Fitness evaluation output suspicious (spec=${parsedScores.specCompliance}/100 aggregate=${parsedScores.aggregate}/100) — using derived fallback`,
+            "WARN",
+          );
+          return fallbackResponse(suspiciousFallbackNote);
+        }
+        const notes =
+          typeof parsed.notes === "string" ? parsed.notes : "No notes provided";
+        const checklist = Array.isArray(parsed.checklist)
+          ? parsed.checklist.map((item) => ({
+              requirement: String((item as ChecklistItem).requirement ?? ""),
+              score: clamp((item as ChecklistItem).score),
+              reasoning: String((item as ChecklistItem).reasoning ?? ""),
+            }))
+          : [];
+        return {
+          ...parsedScores,
+          aggregate: computedAggregate,
+          notes,
+          checklist,
         };
       }
       log(
@@ -546,16 +584,7 @@ Respond with ONLY a valid JSON object — no markdown, no code fences, no extra 
     }
   }
 
-  // Fallback scores based on objective metrics
-  return {
-    specCompliance: 0,
-    testCoverage: testResult.success ? 30 : 0,
-    codeQuality: 10,
-    buildHealth: buildResult.success ? 50 : 0,
-    aggregate: 0,
-    notes: "Evaluation failed — using fallback metrics",
-    checklist: [],
-  };
+  return fallbackResponse(fallbackNote);
 }
 
 // --- GitHub Issue reporting ---

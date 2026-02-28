@@ -26,6 +26,7 @@ export interface LintWarningSummary {
   count: number;
   topRules: string[];
   topFiles: string[];
+  uniqueRules: number;
 }
 
 /** Create default CI status for state migration before the first check has run. */
@@ -98,7 +99,8 @@ export function parseLintWarnings(output: string): LintWarningSummary {
     .slice(0, 10)
     .map(([file]) => file);
 
-  return { count, topRules, topFiles };
+  const uniqueRules = Object.keys(byRule).length;
+  return { count, topRules, topFiles, uniqueRules };
 }
 
 /** Derive normalized CI status from build/test/lint command outputs. */
