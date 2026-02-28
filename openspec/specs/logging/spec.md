@@ -84,13 +84,40 @@ The system SHALL log each tool invocation with enough context for the observer t
 #### Scenario: Tool start event
 
 - GIVEN `tool.execution_start` is emitted by the Copilot SDK
-- THEN the system SHALL log `[DEBUG]`:
+- THEN the system SHALL log `[DEBUG]` with a human-readable description extracted from `arguments`:
+  - `view` / `read_file`: `⚙ view — src/core/upload.ts L10–50`
+  - `bash` / `shell`: `⚙ bash — npm test 2>&1 | tail -40`
+  - `grep` / `rg`: `⚙ grep — "AuthenticationError" in src/`
+  - `edit` / `create` / `replace_string_in_file`: `⚙ edit — src/cli/index.ts (add login command)`
+  - `report_intent`: `⚙ report_intent — Implementing the release-asset upload strategy`
+  - `sql` / `db_query`: `⚙ sql — SELECT * FROM sessions WHERE ...`
+  - `glob` / `list_dir`: `⚙ glob — src/**/*.ts`
+  - Other tools: best-effort extraction of first meaningful string field
+- Input SHALL be capped at 200 characters per line
+
+#### Scenario: Tool progress event
+
+- GIVEN `tool.execution_progress` is emitted
+- WHEN `progressMessage` is non-empty
+- THEN log `[DEBUG]`:
   ```
-  ⚙ {toolName} — {first 120 chars of JSON-serialised input}
+    ↳ {progressMessage}
   ```
-  - If input is absent or empty, omit the ` — {input}` part
-  - Example: `⚙ bash — {"command":"npm test 2>&1 | tail -40"}`
-  - Example: `⚙ view — {"path":"src/core/upload.ts","startLine":1}`
+
+#### Scenario: Tool completion event
+
+- GIVEN `tool.execution_complete` is emitted
+- WHEN `success=false`
+- THEN log `[WARN]`:
+  ```
+    ✗ tool failed: {first 200 chars of result.content}
+  ```
+- WHEN `success=true` and result content is non-trivial
+- THEN log `[DEBUG]`:
+  ```
+    ✓ {line count} lines — {first line of output}
+  ```
+  or for short results: the full output on one line
 
 #### Scenario: Tool call aggregation
 
