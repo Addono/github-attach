@@ -66,7 +66,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Addono/github-attach.git"
+    "url": "https://github.com/Addono/gh-attach.git"
   },
   "engines": {
     "node": ">=20"
