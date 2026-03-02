@@ -1,12 +1,12 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`CLI Help Output Snapshots > should match config command help output 1`] = `
-"Usage: gh-attach config [options] <action> [key] [value]
+"Usage: gh-attach config [options] [action] [key] [value]
 
 Manage gh-attach configuration
 
 Arguments:
-  action      Action: list, set, get
+  action      Action: list, set, get (default: list)
   key         Configuration key
   value       Configuration value
 
@@ -41,7 +41,7 @@ Options:
 Commands:
   upload [options] [files...]    Upload an image and get a markdown embed URL
   login [options]                Authenticate with GitHub via browser
-  config <action> [key] [value]  Manage gh-attach configuration
+  config [action] [key] [value]  Manage gh-attach configuration
   mcp [options]                  Start the MCP server
   help [command]                 display help for command"
 `;
