@@ -1,3 +1,16 @@
+# [1.3.0](https://github.com/Addono/gh-attach/compare/v1.2.0...v1.3.0) (2026-03-02)
+
+
+### Bug Fixes
+
+* build CJS bundle for pkg binary to fix gh extension ESM error ([e6362e9](https://github.com/Addono/gh-attach/commit/e6362e941e1869d3b65060189fac0c90e8b85ab2))
+* increase login test timeout for Playwright auto-install in CI ([7763bf2](https://github.com/Addono/gh-attach/commit/7763bf2f989b5c24aad726ebe1cdad56e85a8ed5))
+
+
+### Features
+
+* auto-install Playwright browsers and improve strategy help text ([47a85dc](https://github.com/Addono/gh-attach/commit/47a85dc875b261fe61efdff4fefaaf63a1827497))
+
 # [1.2.0](https://github.com/Addono/gh-attach/compare/v1.1.0...v1.2.0) (2026-03-02)
 
 
