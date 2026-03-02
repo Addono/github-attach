@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { execFileSync } from "child_process";
 import {
   isSessionExpired,
   loadSession,
@@ -55,6 +56,22 @@ export async function loginCommand(options: LoginOptions) {
   // Interactive browser login using Playwright
   info("Opening browser for GitHub authentication...");
   info("Please log in to GitHub in the browser window that opens.");
+
+  // Ensure Playwright browsers are installed before attempting to launch
+  const browserPath = chromium.executablePath();
+  if (!browserPath || !(await fileExists(browserPath))) {
+    info("Playwright browsers not found. Installing Chromium...");
+    try {
+      execFileSync("npx", ["playwright", "install", "chromium"], {
+        stdio: "inherit",
+      });
+    } catch {
+      throw new AuthenticationError(
+        "Failed to install Playwright browsers. Run 'npx playwright install chromium' manually.",
+        "PLAYWRIGHT_INSTALL_FAILED",
+      );
+    }
+  }
 
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
@@ -117,5 +134,15 @@ export async function loginCommand(options: LoginOptions) {
     );
   } finally {
     await browser.close();
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    const { access } = await import("fs/promises");
+    await access(path);
+    return true;
+  } catch {
+    return false;
   }
 }

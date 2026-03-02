@@ -4,6 +4,7 @@ import type { SessionData } from "../../../../src/core/session.js";
 vi.mock("playwright", () => ({
   chromium: {
     launch: vi.fn(),
+    executablePath: vi.fn().mockReturnValue("/bin/sh"),
   },
 }));
 

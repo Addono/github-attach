@@ -67,7 +67,8 @@ Arguments:
 
 Options:
   --target <ref>     GitHub issue/PR reference (owner/repo#N, #N, or URL)
-  --strategy <name>  Upload strategy to use
+  --strategy <name>  Upload strategy: release-asset, repo-branch,
+                     browser-session, cookie-extraction
   --format <type>    Output format: markdown, url, json (default: "markdown")
   --stdin            Read image from stdin
   --filename <name>  Filename when using --stdin

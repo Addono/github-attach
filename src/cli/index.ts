@@ -93,7 +93,10 @@ export function createProgram(): Command {
       "--target <ref>",
       "GitHub issue/PR reference (owner/repo#N, #N, or URL)",
     )
-    .option("--strategy <name>", "Upload strategy to use")
+    .option(
+      "--strategy <name>",
+      "Upload strategy: release-asset, repo-branch, browser-session, cookie-extraction",
+    )
     .option("--format <type>", "Output format: markdown, url, json", "markdown")
     .option("--stdin", "Read image from stdin")
     .option("--filename <name>", "Filename when using --stdin")
