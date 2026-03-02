@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/Addono/gh-attach/compare/v1.0.5...v1.0.6) (2026-03-02)
+
+
+### Bug Fixes
+
+* correct upload data encoding and 404 detection in strategies ([68247d7](https://github.com/Addono/gh-attach/commit/68247d7cc65d613ca3685cc7f136ff711ea9d180))
+
 ## [1.0.5](https://github.com/Addono/gh-attach/compare/v1.0.4...v1.0.5) (2026-03-02)
 
 
