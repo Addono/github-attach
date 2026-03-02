@@ -1,4 +1,5 @@
-import { chromium } from "playwright";
+import { execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
 import {
   isSessionExpired,
   loadSession,
@@ -8,10 +9,10 @@ import {
 import { AuthenticationError } from "../../core/types.js";
 import { debug, info } from "../output.js";
 
-/**
- * Timeout in milliseconds for the login flow (5 minutes).
- */
-const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
+const execFile = promisify(execFileCallback);
+
+/** Token lifetime when saved from `gh auth token` (90 days). */
+const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 interface LoginOptions {
   status?: boolean;
@@ -52,70 +53,60 @@ export async function loginCommand(options: LoginOptions) {
     return;
   }
 
-  // Interactive browser login using Playwright
-  info("Opening browser for GitHub authentication...");
-  info("Please log in to GitHub in the browser window that opens.");
+  // Authenticate via `gh auth token`
+  info("Authenticating via GitHub CLI...");
 
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
+  let token: string;
   try {
-    await page.goto("https://github.com/login");
-
-    // Wait for successful login by watching for the user avatar.
-    await page.waitForSelector('img[alt*="@"]', {
-      timeout: LOGIN_TIMEOUT_MS,
-    });
-
-    const usernameElement = page.locator('meta[name="user-login"]');
-    const username = await usernameElement
-      .getAttribute("content")
-      .catch(() => null);
-
-    const allCookies = await context.cookies("https://github.com");
-    const relevantCookies = allCookies.filter(
-      (c) =>
-        c.name === "user_session" ||
-        c.name === "__Host-user_session_same_site" ||
-        c.name === "logged_in" ||
-        c.name === "_gh_sess",
+    const { stdout } = await execFile("gh", [
+      "auth",
+      "token",
+      "--hostname",
+      "github.com",
+    ]);
+    token = stdout.trim();
+  } catch (err) {
+    throw new AuthenticationError(
+      `Failed to retrieve GitHub token from 'gh auth token': ${err instanceof Error ? err.message : String(err)}. ` +
+        "Ensure you are authenticated with the GitHub CLI ('gh auth login').",
+      "AUTH_FAILED",
     );
-
-    if (relevantCookies.length === 0) {
-      throw new AuthenticationError(
-        "Failed to extract GitHub session cookies",
-        "INVALID_SESSION",
-      );
-    }
-
-    const cookieString = relevantCookies
-      .map((c) => `${c.name}=${c.value}`)
-      .join("; ");
-
-    // Calculate expiry (use the earliest expiry or 30 days from now)
-    const minExpiry = relevantCookies.reduce((min, c) => {
-      const exp = c.expires && c.expires > 0 ? c.expires * 1000 : Infinity;
-      return Math.min(min, exp);
-    }, Infinity);
-    const expires =
-      minExpiry === Infinity
-        ? Date.now() + 30 * 24 * 60 * 60 * 1000
-        : minExpiry;
-
-    const session: SessionData = {
-      cookies: cookieString,
-      username: username ?? undefined,
-      expires,
-    };
-
-    saveSession(session, sessionPathOptions);
-
-    console.log(`Successfully authenticated as ${username ?? "unknown user"}`);
-    console.log(
-      "Session saved. You can now use gh-attach with browser-session strategy.",
-    );
-  } finally {
-    await browser.close();
   }
+
+  if (!token) {
+    throw new AuthenticationError(
+      "GitHub CLI returned an empty token. Run 'gh auth login' to authenticate.",
+      "AUTH_FAILED",
+    );
+  }
+
+  // Resolve the GitHub username via the API.
+  let username: string | undefined;
+  try {
+    const response = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (response.ok) {
+      const data = (await response.json()) as { login?: string };
+      username = data.login ?? undefined;
+    }
+  } catch {
+    // Username is optional – continue without it.
+  }
+
+  const session: SessionData = {
+    token,
+    username,
+    expires: Date.now() + TOKEN_TTL_MS,
+  };
+
+  saveSession(session, sessionPathOptions);
+
+  console.log(`Successfully authenticated as ${username ?? "unknown user"}`);
+  console.log(
+    "Session saved. You can now use gh-attach with browser-session strategy.",
+  );
 }

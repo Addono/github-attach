@@ -8,6 +8,7 @@ import {
   saveSession,
   isSessionExpired,
   getSessionCookies,
+  getSessionToken,
 } from "../../../src/core/session.js";
 import type { SessionData } from "../../../src/core/session.js";
 
@@ -154,6 +155,38 @@ describe("session helpers", () => {
     it("returns cookies when no expiry is set", () => {
       const cookies = getSessionCookies({ cookies: "user_session=abc" });
       expect(cookies).toBe("user_session=abc");
+    });
+  });
+
+  describe("getSessionToken", () => {
+    it("returns null for null session", () => {
+      expect(getSessionToken(null)).toBeNull();
+    });
+
+    it("returns null when no token is present", () => {
+      expect(getSessionToken({ username: "user" })).toBeNull();
+    });
+
+    it("returns null when session is expired", () => {
+      expect(
+        getSessionToken({
+          token: "ghp_abc",
+          expires: Date.now() - 1000,
+        }),
+      ).toBeNull();
+    });
+
+    it("returns token when session is valid", () => {
+      const token = getSessionToken({
+        token: "ghp_abc",
+        expires: Date.now() + 86400000,
+      });
+      expect(token).toBe("ghp_abc");
+    });
+
+    it("returns token when no expiry is set", () => {
+      const token = getSessionToken({ token: "ghp_abc" });
+      expect(token).toBe("ghp_abc");
     });
   });
 });

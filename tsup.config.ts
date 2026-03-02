@@ -38,7 +38,7 @@ export default defineConfig([
     dts: false,
     sourcemap: false,
     target: "node18",
-    noExternal: [/^(?!playwright$)/],
+    noExternal: [/.*/],
     banner: {
       js: "#!/usr/bin/env node",
     },

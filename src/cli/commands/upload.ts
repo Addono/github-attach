@@ -5,7 +5,7 @@ import { createReleaseAssetStrategy } from "../../core/strategies/releaseAsset.j
 import { createBrowserSessionStrategy } from "../../core/strategies/browserSession.js";
 import { createCookieExtractionStrategy } from "../../core/strategies/cookieExtraction.js";
 import { createRepoBranchStrategy } from "../../core/strategies/repoBranch.js";
-import { getSessionCookies, loadSession } from "../../core/session.js";
+import { getSessionCookies, getSessionToken, loadSession } from "../../core/session.js";
 import { parseTarget } from "../../core/target.js";
 import { validateFile } from "../../core/validation.js";
 import { upload } from "../../core/upload.js";
@@ -37,13 +37,15 @@ const DEFAULT_STRATEGY_ORDER = [
  */
 function createStrategy(name: string): UploadStrategy | null {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const session = loadSession();
   const cookies =
-    process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+    process.env.GH_ATTACH_COOKIES ?? getSessionCookies(session);
+  const sessionToken = getSessionToken(session);
 
   switch (name) {
     case "browser-session":
-      if (cookies) {
-        return createBrowserSessionStrategy(cookies);
+      if (cookies || sessionToken) {
+        return createBrowserSessionStrategy({ cookies: cookies ?? undefined, token: sessionToken ?? undefined });
       }
       return null;
     case "cookie-extraction":

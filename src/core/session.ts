@@ -15,6 +15,8 @@ import { dirname, join } from "node:path";
 export interface SessionData {
   /** Cookie header string (e.g. "user_session=...; logged_in=yes") */
   cookies?: string;
+  /** GitHub personal access token or OAuth token */
+  token?: string;
   /** GitHub username associated with the session, if available */
   username?: string;
   /** Expiry time as epoch milliseconds */
@@ -112,4 +114,23 @@ export function getSessionCookies(
     return null;
   }
   return session.cookies;
+}
+
+/**
+ * Get a usable GitHub token from a session, or null if unavailable/expired.
+ */
+export function getSessionToken(
+  session: SessionData | null,
+  nowMs: number = Date.now(),
+): string | null {
+  if (!session) {
+    return null;
+  }
+  if (!session.token) {
+    return null;
+  }
+  if (isSessionExpired(session, nowMs)) {
+    return null;
+  }
+  return session.token;
 }

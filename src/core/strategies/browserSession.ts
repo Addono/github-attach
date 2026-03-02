@@ -4,18 +4,48 @@ import { AuthenticationError, UploadError } from "../types.js";
 import type { UploadResult, UploadStrategy, UploadTarget } from "../types.js";
 
 /**
+ * Credentials accepted by the browser session strategy.
+ * Provide either a GitHub token (preferred) or raw session cookies.
+ */
+export interface BrowserSessionCredentials {
+  /** GitHub personal access token or OAuth token */
+  token?: string;
+  /** Raw cookie header string (legacy, from browser session extraction) */
+  cookies?: string;
+}
+
+/**
+ * Build the HTTP authentication headers for a request.
+ */
+function buildAuthHeaders(
+  credentials: BrowserSessionCredentials,
+): Record<string, string> {
+  if (credentials.token) {
+    return { Authorization: `Bearer ${credentials.token}` };
+  }
+  if (credentials.cookies) {
+    return { Cookie: credentials.cookies };
+  }
+  return {};
+}
+
+/**
  * Browser Session upload strategy using GitHub's undocumented browser upload flow.
- * Requires a valid session cookie to be provided.
+ * Accepts either a GitHub token or session cookies for authentication.
  *
- * @param cookies Session cookies (from browser or other source)
+ * @param credentials GitHub token or session cookies
  * @returns UploadStrategy implementation
  */
-export function createBrowserSessionStrategy(cookies: string): UploadStrategy {
+export function createBrowserSessionStrategy(
+  credentials: BrowserSessionCredentials | string,
+): UploadStrategy {
+  const creds: BrowserSessionCredentials =
+    typeof credentials === "string" ? { cookies: credentials } : credentials;
   return {
     name: "browser-session",
 
     async isAvailable(): Promise<boolean> {
-      return !!cookies;
+      return !!(creds.token || creds.cookies);
     },
 
     async upload(
@@ -24,13 +54,13 @@ export function createBrowserSessionStrategy(cookies: string): UploadStrategy {
     ): Promise<UploadResult> {
       try {
         // Get repository ID from GitHub
-        const repoId = await getRepositoryId(target, cookies);
+        const repoId = await getRepositoryId(target, creds);
 
         // Get upload policy and CSRF token
         const { uploadUrl, formData, csrfToken } = await getUploadPolicy(
           target,
           repoId,
-          cookies,
+          creds,
         );
 
         // Upload file to S3
@@ -41,7 +71,7 @@ export function createBrowserSessionStrategy(cookies: string): UploadStrategy {
           target,
           csrfToken,
           basename(filePath),
-          cookies,
+          creds,
         );
 
         // Generate markdown
@@ -79,14 +109,14 @@ export function createBrowserSessionStrategy(cookies: string): UploadStrategy {
  */
 async function getRepositoryId(
   target: UploadTarget,
-  cookies: string,
+  credentials: BrowserSessionCredentials,
 ): Promise<string> {
   try {
     const response = await fetch(
       `https://api.github.com/repos/${target.owner}/${target.repo}`,
       {
         headers: {
-          Cookie: cookies,
+          ...buildAuthHeaders(credentials),
           Accept: "application/vnd.github.v3+json",
         },
       },
@@ -122,7 +152,7 @@ async function getRepositoryId(
 async function getUploadPolicy(
   target: UploadTarget,
   repoId: string,
-  cookies: string,
+  credentials: BrowserSessionCredentials,
 ): Promise<{
   uploadUrl: string;
   formData: Record<string, string>;
@@ -134,7 +164,7 @@ async function getUploadPolicy(
       {
         method: "POST",
         headers: {
-          Cookie: cookies,
+          ...buildAuthHeaders(credentials),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ repository_id: repoId }),
@@ -237,7 +267,7 @@ async function confirmUpload(
   target: UploadTarget,
   csrfToken: string,
   filename: string,
-  cookies: string,
+  credentials: BrowserSessionCredentials,
 ): Promise<string> {
   try {
     const response = await fetch(
@@ -245,7 +275,7 @@ async function confirmUpload(
       {
         method: "PUT",
         headers: {
-          Cookie: cookies,
+          ...buildAuthHeaders(credentials),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name: filename }),

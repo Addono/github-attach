@@ -16,6 +16,7 @@ vi.mock("../../../../src/core/validation.js", () => ({
 vi.mock("../../../../src/core/session.js", () => ({
   loadSession: vi.fn(() => null),
   getSessionCookies: vi.fn(() => null),
+  getSessionToken: vi.fn(() => null),
 }));
 vi.mock("../../../../src/cli/commands/config.js", () => ({
   loadConfig: vi.fn(() => ({})),
