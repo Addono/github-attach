@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/Addono/gh-attach/compare/v1.0.6...v1.1.0) (2026-03-02)
+
+
+### Features
+
+* configure npm publishing to GitHub Packages registry ([dd8e9b2](https://github.com/Addono/gh-attach/commit/dd8e9b2ffe5dde115caa58c92b5face18c71647a)), closes [addono/#attach](https://github.com/Addono/gh-attach/issues/attach) [#17](https://github.com/Addono/gh-attach/issues/17)
+
 ## [1.0.6](https://github.com/Addono/gh-attach/compare/v1.0.5...v1.0.6) (2026-03-02)
 
 
