@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/Addono/gh-attach/compare/v1.0.4...v1.0.5) (2026-03-02)
+
+
+### Bug Fixes
+
+* renames repo to gh-attach ([9d8dc1f](https://github.com/Addono/gh-attach/commit/9d8dc1fc02c47c1fda156153919e7b40d882cdda)), closes [#attach](https://github.com/Addono/gh-attach/issues/attach)
+
 ## [1.0.4](https://github.com/Addono/gh-attach/compare/v1.0.3...v1.0.4) (2026-02-28)
 
 
