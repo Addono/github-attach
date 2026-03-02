@@ -141,7 +141,8 @@ async function findOrCreateAssetsRelease(
           owner: target.owner,
           repo: target.repo,
           tag_name: ASSETS_TAG,
-          name: "Image Assets",
+          name: "gh-attach image assets",
+          body: "This is a dummy release used by [gh-attach](https://github.com/Addono/gh-attach) as storage for image assets attached to issues and pull requests.\n\n> [!WARNING]\n> Do not delete this release or its assets — doing so will break image embeds that reference them.",
           draft: false,
           prerelease: true,
         });

@@ -80,6 +80,8 @@ The system SHALL support uploading images as GitHub release assets via the offic
 - AND no existing image-assets release in the target repository
 - WHEN `upload(file, target)` is called
 - THEN the system SHALL create a prerelease (non-draft) tagged `_gh-attach-assets`
+- AND the release SHALL have the title `"gh-attach image assets"`
+- AND the release SHALL have a body explaining it is a dummy release used by gh-attach as storage for image assets, and that it should not be deleted
 - AND upload the image as a release asset
 - AND return the asset download URL
 
