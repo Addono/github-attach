@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/Addono/gh-attach/compare/v1.3.0...v1.4.0) (2026-03-02)
+
+
+### Bug Fixes
+
+* remove playwright auto-install to prevent CI timeout ([32fe560](https://github.com/Addono/gh-attach/commit/32fe5605afce65e12322a9b12984055ff0831d03))
+
+
+### Features
+
+* **config:** default to list when no action is given ([1b5d4da](https://github.com/Addono/gh-attach/commit/1b5d4da179f3a1476fa1221a4460d05d41da300e)), closes [#attach](https://github.com/Addono/gh-attach/issues/attach) [#attach](https://github.com/Addono/gh-attach/issues/attach)
+
 # [1.3.0](https://github.com/Addono/gh-attach/compare/v1.2.0...v1.3.0) (2026-03-02)
 
 
