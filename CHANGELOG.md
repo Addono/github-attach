@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/Addono/gh-attach/compare/v1.4.0...v1.5.0) (2026-03-02)
+
+
+### Bug Fixes
+
+* throw on missing download URL; suppress ExperimentalWarning ([b7936da](https://github.com/Addono/gh-attach/commit/b7936da4a909c9fc21fc37fbbb7f91811a9d93b3)), closes [owner/repo#N](https://github.com/owner/repo/issues/N)
+
+
+### Features
+
+* add title and description to gh-attach-assets release ([9cc2590](https://github.com/Addono/gh-attach/commit/9cc25902e6da642faed9683807b84ce513d72fb0)), closes [#attach-assets](https://github.com/Addono/gh-attach/issues/attach-assets) [#attach](https://github.com/Addono/gh-attach/issues/attach)
+
 # [1.4.0](https://github.com/Addono/gh-attach/compare/v1.3.0...v1.4.0) (2026-03-02)
 
 
