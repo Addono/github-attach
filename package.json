@@ -79,7 +79,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
-    "@commitlint/config-conventional": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.4",
     "@github/copilot-sdk": "^0.1.29",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
