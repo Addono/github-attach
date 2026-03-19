@@ -181,9 +181,7 @@ describe("loginCommand unit tests", () => {
     it("throws AuthenticationError when gh auth token returns empty string", async () => {
       setupGhTokenMock("");
 
-      await expect(loginCommand({})).rejects.toThrow(
-        /empty token/,
-      );
+      await expect(loginCommand({})).rejects.toThrow(/empty token/);
     });
 
     it("passes statePath option through to session saver", async () => {

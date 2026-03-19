@@ -20,6 +20,7 @@ const nodeGlobals = {
   URL: "readonly",
   fetch: "readonly",
   FormData: "readonly",
+  Response: "readonly",
   NodeJS: "readonly",
 };
 
