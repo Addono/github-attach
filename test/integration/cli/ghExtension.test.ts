@@ -1,13 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmod } from "node:fs/promises";
-import { cp, mkdtemp, mkdir, rm, symlink } from "node:fs/promises";
 import { readFileSync } from "node:fs";
+import { chmod, cp, mkdtemp, mkdir, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const PACKAGE_VERSION = JSON.parse(
+const PACKAGE_JSON = JSON.parse(
   readFileSync(resolve(ROOT, "package.json"), "utf8"),
 ) as {
   version: string;
@@ -17,7 +16,7 @@ const HAS_GH =
     encoding: "utf8",
   }).status === 0;
 
-const tempDirs: string[] = [];
+const cleanupDirs: string[] = [];
 
 function runGh(
   args: string[],
@@ -33,7 +32,7 @@ function runGh(
 async function createIsolatedGhEnv(): Promise<NodeJS.ProcessEnv> {
   const homeDir = await mkdtemp(join(tmpdir(), "gh-attach-home-"));
   const configDir = await mkdtemp(join(tmpdir(), "gh-attach-config-"));
-  tempDirs.push(homeDir, configDir);
+  cleanupDirs.push(homeDir, configDir);
 
   return {
     ...process.env,
@@ -45,7 +44,7 @@ async function createIsolatedGhEnv(): Promise<NodeJS.ProcessEnv> {
 async function createLocalExtensionCheckout(): Promise<string> {
   const parentDir = await mkdtemp(join(tmpdir(), "gh-attach-ext-"));
   const repoDir = join(parentDir, "gh-attach");
-  tempDirs.push(parentDir);
+  cleanupDirs.push(parentDir);
 
   await mkdir(repoDir, { recursive: true });
   await mkdir(join(repoDir, ".git"));
@@ -63,21 +62,12 @@ async function createLocalExtensionCheckout(): Promise<string> {
 }
 
 afterEach(async () => {
-  for (const dir of tempDirs.splice(0)) {
+  for (const dir of cleanupDirs.splice(0)) {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
 describe("GitHub CLI extension integration", () => {
-  it("gating: requires gh CLI to be installed", () => {
-    if (!HAS_GH) {
-      console.log(
-        "[integration] gh extension tests skipped — GitHub CLI is not installed",
-      );
-    }
-    expect(true).toBe(true);
-  });
-
   describe.runIf(HAS_GH)("local extension install", () => {
     it("installs the current checkout and exposes gh attach", async () => {
       const env = await createIsolatedGhEnv();
@@ -85,7 +75,7 @@ describe("GitHub CLI extension integration", () => {
       runGh(["extension", "install", "."], { cwd: ROOT, env });
 
       expect(runGh(["attach", "--version"], { cwd: ROOT, env })).toBe(
-        PACKAGE_VERSION.version,
+        PACKAGE_JSON.version,
       );
       expect(runGh(["attach", "--help"], { cwd: ROOT, env })).toContain(
         "upload",
@@ -99,7 +89,10 @@ describe("GitHub CLI extension integration", () => {
       runGh(["extension", "install", "."], { cwd: repoDir, env });
 
       expect(runGh(["attach", "--version"], { cwd: repoDir, env })).toBe(
-        PACKAGE_VERSION.version,
+        PACKAGE_JSON.version,
+      );
+      expect(runGh(["attach", "--help"], { cwd: repoDir, env })).toContain(
+        "upload",
       );
     });
   });
