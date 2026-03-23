@@ -6,7 +6,9 @@
 
 export default {
   extends: ["@commitlint/config-conventional"],
+  ignores: [(message) => message.trim() === "Initial plan"],
   rules: {
+    "body-max-line-length": [0],
     "type-enum": [
       2,
       "always",
