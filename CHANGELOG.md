@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/Addono/gh-attach/compare/v1.5.1...v1.5.2) (2026-03-23)
+
+
+### Bug Fixes
+
+* harden gh extension installs ([#33](https://github.com/Addono/gh-attach/issues/33)) ([964776b](https://github.com/Addono/gh-attach/commit/964776b52ac8b5586a55f77e2548d37d6828f314))
+
 ## [1.5.1](https://github.com/Addono/gh-attach/compare/v1.5.0...v1.5.1) (2026-03-02)
 
 
