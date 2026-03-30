@@ -11,6 +11,8 @@ const PACKAGE_JSON = JSON.parse(
 ) as {
   version: string;
 };
+const EXPECTED_VERSION =
+  process.env.GH_ATTACH_BUILD_VERSION ?? PACKAGE_JSON.version;
 const HAS_GH =
   spawnSync("gh", ["--version"], {
     encoding: "utf8",
@@ -77,7 +79,7 @@ describe("GitHub CLI extension integration", () => {
       runGh(["extension", "install", "."], { cwd: ROOT, env });
 
       expect(runGh(["attach", "--version"], { cwd: ROOT, env })).toBe(
-        PACKAGE_JSON.version,
+        EXPECTED_VERSION,
       );
       expect(runGh(["attach", "--help"], { cwd: ROOT, env })).toContain(
         "upload",

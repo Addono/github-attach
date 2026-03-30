@@ -6,6 +6,9 @@ import { resolve } from "path";
 const ROOT = resolve(import.meta.dirname, "../../..");
 const CJS_PATH = resolve(ROOT, "dist/cli-pkg.cjs");
 const ESM_PATH = resolve(ROOT, "dist/cli.js");
+const EXPECTED_VERSION =
+  process.env.GH_ATTACH_BUILD_VERSION ??
+  JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")).version;
 
 /**
  * Runs the CJS bundle with given arguments and returns stdout.
@@ -30,12 +33,9 @@ describe("CJS Bundle (pkg target)", () => {
     expect(firstLines).not.toMatch(/^import\s+\{/m);
   });
 
-  it("should output version matching package.json", () => {
-    const pkgVersion = JSON.parse(
-      readFileSync(resolve(ROOT, "package.json"), "utf8"),
-    ).version;
+  it("should output version matching the build version", () => {
     const output = runCjs("--version");
-    expect(output).toBe(pkgVersion);
+    expect(output).toBe(EXPECTED_VERSION);
   });
 
   it("should display help text", () => {
@@ -90,10 +90,7 @@ describe("Binary Artifacts", () => {
     const output = execSync(`${binPath} --version`, {
       encoding: "utf8",
     }).trim();
-    const pkgVersion = JSON.parse(
-      readFileSync(resolve(ROOT, "package.json"), "utf8"),
-    ).version;
-    expect(output).toBe(pkgVersion);
+    expect(output).toBe(EXPECTED_VERSION);
   });
 
   it("should produce Linux binary that can display help", () => {

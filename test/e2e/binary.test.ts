@@ -20,6 +20,9 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const CJS_PATH = resolve(ROOT, "dist/cli-pkg.cjs");
 const BIN_PATH = resolve(ROOT, "bin/gh-attach-linux-amd64");
 const TEST_IMAGE_PATH = join(import.meta.dirname, "../fixtures/test-image.png");
+const EXPECTED_VERSION =
+  process.env.GH_ATTACH_BUILD_VERSION ??
+  JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")).version;
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const E2E_TEST_REPO = process.env.E2E_TEST_REPO;
@@ -67,10 +70,7 @@ describe("Binary Distribution E2E", () => {
         const output = execSync(`${BIN_PATH} --version`, {
           encoding: "utf8",
         }).trim();
-        const pkgVersion = JSON.parse(
-          readFileSync(resolve(ROOT, "package.json"), "utf8"),
-        ).version;
-        expect(output).toBe(pkgVersion);
+        expect(output).toBe(EXPECTED_VERSION);
       });
 
       it("uploads a file via release-asset strategy", () => {
