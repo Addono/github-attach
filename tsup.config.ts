@@ -4,6 +4,7 @@ import { defineConfig } from "tsup";
 const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
   version: string;
 };
+const buildVersion = process.env.GH_ATTACH_BUILD_VERSION ?? pkg.version;
 
 export default defineConfig([
   {
@@ -29,7 +30,7 @@ export default defineConfig([
       js: "#!/usr/bin/env node",
     },
     define: {
-      "process.env.__PKG_VERSION__": JSON.stringify(pkg.version),
+      "process.env.__PKG_VERSION__": JSON.stringify(buildVersion),
     },
   },
   // CJS bundle for pkg binary packaging (pkg doesn't support ESM)
@@ -46,7 +47,7 @@ export default defineConfig([
       js: "#!/usr/bin/env node",
     },
     define: {
-      "process.env.__PKG_VERSION__": JSON.stringify(pkg.version),
+      "process.env.__PKG_VERSION__": JSON.stringify(buildVersion),
     },
   },
 ]);

@@ -12,7 +12,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "npm run build && npm run package"
+        "prepareCmd": "GH_ATTACH_BUILD_VERSION=${nextRelease.version} npm run build"
       }
     ],
     "@semantic-release/npm",
