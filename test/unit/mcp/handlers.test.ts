@@ -3,7 +3,7 @@ import { existsSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { saveSession } from "../../../src/core/session.js";
-import type { UploadStrategy } from "../../../src/core/types.js";
+import { UploadError, type UploadStrategy } from "../../../src/core/types.js";
 
 type ToolResult = {
   content: Array<{ type: string; text: string }>;
@@ -377,6 +377,87 @@ describe("MCP server handlers", () => {
 
     expect(response.isError).toBe(true);
     expect(response.content[0]?.text).toContain("No authentication available");
+  });
+
+  it("auto-elicits a token during upload_image when a token-backed upload is needed", async () => {
+    hoisted.mockServerGetClientCapabilities.mockReturnValue({
+      elicitation: { form: true },
+    });
+    hoisted.mockServerElicitInput.mockResolvedValue({
+      action: "accept",
+      content: { token: "ghs_elicited_token" },
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: {
+        name: "upload_image",
+        arguments: {
+          filePath: "/tmp/example.png",
+          target: "octo/repo#42",
+        },
+      },
+    });
+
+    expect(response.isError).toBeUndefined();
+    expect(hoisted.mockServerElicitInput).toHaveBeenCalled();
+    expect(hoisted.mockCreateReleaseAssetStrategy).toHaveBeenCalledWith(
+      "ghs_elicited_token",
+    );
+    const passedStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ??
+      []) as UploadStrategy[];
+    expect(passedStrategies.map((strategy) => strategy.name)).toEqual([
+      "cookie-extraction",
+      "release-asset",
+      "repo-branch",
+    ]);
+  });
+
+  it("retries upload_image with an elicited token after a stale browser-session failure", async () => {
+    process.env.GH_ATTACH_COOKIES = "user_session=stale";
+    hoisted.mockServerGetClientCapabilities.mockReturnValue({
+      elicitation: { form: true },
+    });
+    hoisted.mockServerElicitInput.mockResolvedValue({
+      action: "accept",
+      content: { token: "ghs_retry_token" },
+    });
+    hoisted.mockUpload
+      .mockRejectedValueOnce(
+        new UploadError("Saved session is expired.", "SESSION_EXPIRED"),
+      )
+      .mockResolvedValueOnce(hoisted.mockUploadResult);
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: {
+        name: "upload_image",
+        arguments: {
+          filePath: "/tmp/example.png",
+          target: "octo/repo#42",
+        },
+      },
+    });
+
+    expect(response.isError).toBeUndefined();
+    expect(hoisted.mockServerElicitInput).toHaveBeenCalled();
+    expect(hoisted.mockUpload).toHaveBeenCalledTimes(2);
+
+    const firstStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ??
+      []) as UploadStrategy[];
+    expect(firstStrategies.map((strategy) => strategy.name)).toEqual([
+      "browser-session",
+      "cookie-extraction",
+    ]);
+
+    const retryStrategies = (hoisted.mockUpload.mock.calls[1]?.[2] ??
+      []) as UploadStrategy[];
+    expect(retryStrategies.map((strategy) => strategy.name)).toEqual([
+      "browser-session",
+      "cookie-extraction",
+      "release-asset",
+      "repo-branch",
+    ]);
   });
 
   it("cleans up temporary file after failed content upload", async () => {

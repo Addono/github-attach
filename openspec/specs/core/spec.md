@@ -128,7 +128,15 @@ The system SHALL support automatic strategy selection with configurable fallback
 - GIVEN a configured strategy preference order (default: `[browser-session, cookie-extraction, release-asset, repo-branch]`)
 - WHEN `upload()` is called without specifying a strategy
 - THEN the system SHALL try each strategy in order via `isAvailable()`
-- AND use the first available strategy
+- AND return the first strategy that uploads successfully
+
+#### Scenario: Fallback after upload failure
+
+- GIVEN multiple strategies are configured
+- AND an earlier strategy is available but fails with an `AuthenticationError` or `UploadError`
+- WHEN `upload()` is called
+- THEN the system SHALL continue to the next configured strategy
+- AND only fail after every available strategy has been exhausted
 
 #### Scenario: Explicit strategy selection
 

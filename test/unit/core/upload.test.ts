@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { upload } from "../../../src/core/upload.js";
 import {
+  AuthenticationError,
   NoStrategyAvailableError,
+  UploadError,
   type UploadStrategy,
   type UploadTarget,
 } from "../../../src/core/types.js";
@@ -45,6 +47,29 @@ describe("upload", () => {
     expect(result.url).toBe("https://img.github.com/a.png");
   });
 
+  it("falls back when the first available strategy upload fails", async () => {
+    const strategies: UploadStrategy[] = [
+      {
+        name: "browser-session",
+        async isAvailable() {
+          return true;
+        },
+        async upload() {
+          throw new UploadError("Saved session is expired.", "SESSION_EXPIRED");
+        },
+      },
+      createMockStrategy(
+        "release-asset",
+        true,
+        "https://img.github.com/release.png",
+      ),
+    ];
+
+    const result = await upload("test.png", mockTarget, strategies);
+    expect(result.strategy).toBe("release-asset");
+    expect(result.url).toBe("https://img.github.com/release.png");
+  });
+
   it("throws NoStrategyAvailableError when no strategy is available", async () => {
     const strategies = [
       createMockStrategy("s1", false),
@@ -76,6 +101,49 @@ describe("upload", () => {
       const result = await upload("test.png", mockTarget, [s1, s2, s3, s4]);
       // Should use s3 (first available), not s4
       expect(result.strategy).toBe("release-asset");
+    });
+
+    it("aggregates errors when every available strategy fails", async () => {
+      const error = await upload("test.png", mockTarget, [
+        {
+          name: "browser-session",
+          async isAvailable() {
+            return true;
+          },
+          async upload() {
+            throw new AuthenticationError(
+              "Saved session is expired.",
+              "SESSION_EXPIRED",
+            );
+          },
+        },
+        {
+          name: "release-asset",
+          async isAvailable() {
+            return true;
+          },
+          async upload() {
+            throw new UploadError(
+              "Cannot create assets release: validation failed.",
+              "RELEASE_CREATE_FAILED",
+            );
+          },
+        },
+      ]).catch((e) => e);
+
+      expect(error).toBeInstanceOf(UploadError);
+      expect(error.message).toContain("All available upload strategies failed");
+      expect(error.message).toContain(
+        "browser-session: Saved session is expired.",
+      );
+      expect(error.message).toContain(
+        "release-asset: Cannot create assets release: validation failed.",
+      );
+      const tried = (error.details as { tried: string[] }).tried;
+      expect(tried).toContain("browser-session: Saved session is expired.");
+      expect(tried).toContain(
+        "release-asset: Cannot create assets release: validation failed.",
+      );
     });
 
     it("throws NoStrategyAvailableError listing all tried strategies when all are unavailable", async () => {

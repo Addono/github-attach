@@ -21,13 +21,33 @@ GitHub doesn't provide an official API for attaching images to issues and pull r
 
 ## Install
 
-```bash
-# npm (standalone, from GitHub Packages)
-npm install -g @addono/gh-attach --registry=https://npm.pkg.github.com
+### Standalone CLI (npm)
 
-# gh extension
+```bash
+# Install globally from GitHub Packages
+npm install -g @addono/gh-attach --registry=https://npm.pkg.github.com
+```
+
+Run it as `gh-attach ...`.
+
+### GitHub CLI extension
+
+```bash
 gh extension install Addono/gh-attach
 ```
+
+Run it as `gh attach ...`.
+
+### Standalone release binary
+
+Download the matching asset from the [latest release](https://github.com/Addono/gh-attach/releases/latest) and place it on your `PATH`. Release assets are published as:
+
+- `gh-attach-darwin-arm64`
+- `gh-attach-darwin-amd64`
+- `gh-attach-linux-amd64`
+- `gh-attach-windows-amd64.exe`
+
+Run it as `gh-attach ...`.
 
 ## Run without installing (npx)
 
@@ -39,7 +59,29 @@ npx --registry=https://npm.pkg.github.com @addono/gh-attach upload ./screenshot.
 npx --registry=https://npm.pkg.github.com @addono/gh-attach mcp --transport stdio
 ```
 
+## Keeping gh-attach up to date
+
+```bash
+# npm install
+npm install -g @addono/gh-attach@latest --registry=https://npm.pkg.github.com
+
+# gh extension install
+gh extension upgrade Addono/gh-attach
+```
+
+If you run via `npx`, there is nothing to upgrade locally — each invocation resolves the published package. Pin a version explicitly if you do not want the latest release:
+
+```bash
+npx --registry=https://npm.pkg.github.com @addono/gh-attach@<version> mcp --transport stdio
+```
+
+If you installed a standalone release binary, download the newest matching asset from the latest GitHub release and replace your existing `gh-attach` executable.
+
+Verify the active version with `gh-attach --version` or `gh attach --version`, depending on how you installed it.
+
 ## Quick Start
+
+If you installed `gh-attach` as a GitHub CLI extension, replace `gh-attach` with `gh attach` in the examples below.
 
 ```bash
 # Upload an image to an issue
@@ -80,9 +122,23 @@ Commits images to an orphan branch. Works with any token.
 
 ## MCP Server
 
+Choose the MCP command that matches how you installed `gh-attach`:
+
+| Install method            | MCP command                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| Standalone npm install    | `gh-attach mcp --transport stdio`                                                   |
+| Standalone release binary | `gh-attach mcp --transport stdio`                                                   |
+| `gh` extension            | `gh attach mcp --transport stdio`                                                   |
+| `npx`                     | `npx --registry=https://npm.pkg.github.com @addono/gh-attach mcp --transport stdio` |
+
+When the MCP client supports elicitation, `upload_image` can prompt for a GitHub token during the same tool call and continue the upload without requiring a separate `login` step first.
+
 ```bash
-# stdio transport (for Claude Desktop, VS Code, etc.)
+# stdio transport (standalone install or release binary)
 gh-attach mcp --transport stdio
+
+# stdio transport (gh extension)
+gh attach mcp --transport stdio
 
 # HTTP transport
 gh-attach mcp --transport http --port 3000
@@ -91,6 +147,8 @@ gh-attach mcp --transport http --port 3000
 ### Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+#### Standalone CLI or release binary
 
 ```json
 {
@@ -103,22 +161,58 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-### VS Code
+#### GitHub CLI extension
+
+```json
+{
+  "mcpServers": {
+    "gh-attach": {
+      "command": "gh",
+      "args": ["attach", "mcp", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+### VS Code / GitHub Copilot
 
 Add to `.vscode/settings.json`:
+
+#### Standalone CLI or release binary
 
 ```json
 {
   "mcp": {
     "servers": {
       "gh-attach": {
+        "type": "local",
         "command": "gh-attach",
-        "args": ["mcp", "--transport", "stdio"]
+        "args": ["mcp", "--transport", "stdio"],
+        "tools": ["*"]
       }
     }
   }
 }
 ```
+
+#### GitHub CLI extension
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "gh-attach": {
+        "type": "local",
+        "command": "gh",
+        "args": ["attach", "mcp", "--transport", "stdio"],
+        "tools": ["*"]
+      }
+    }
+  }
+}
+```
+
+If you prefer `npx`, use `command: "npx"` and prepend `--registry=https://npm.pkg.github.com`, `@addono/gh-attach` to the `args` array.
 
 ## Configuration
 

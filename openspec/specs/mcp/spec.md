@@ -34,6 +34,15 @@ The system SHALL expose an `upload_image` tool.
 - THEN it SHALL upload the image using the core library
 - AND return `{ type: "text", text: "<markdown or url>" }`
 
+#### Scenario: Single-call upload with elicited token
+
+- GIVEN no saved token or browser session is available
+- AND the MCP host supports elicitation
+- WHEN the MCP client calls `upload_image`
+- THEN the server SHALL request a GitHub token during that same tool call
+- AND retry strategy selection with the elicited token before returning
+- AND complete the upload without requiring a separate `login` call first
+
 #### Scenario: Upload with base64 content
 
 - GIVEN `content` (base64 encoded) instead of `filePath`

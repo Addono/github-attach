@@ -28,7 +28,11 @@ import { getSessionCookies, loadSession } from "../core/session.js";
 import { parseTarget } from "../core/target.js";
 import { validateFile } from "../core/validation.js";
 import { upload } from "../core/upload.js";
-import type { UploadStrategy } from "../core/types.js";
+import {
+  AuthenticationError,
+  UploadError,
+  type UploadStrategy,
+} from "../core/types.js";
 
 // Get package version
 function getPackageVersion(): string {
@@ -44,6 +48,8 @@ function getPackageVersion(): string {
 }
 
 const VERSION = getPackageVersion();
+const AUTH_GUIDANCE =
+  "No authentication available. Set GITHUB_TOKEN (or GH_TOKEN), GH_ATTACH_COOKIES, or run 'gh-attach login' to save a browser session.";
 
 /**
  * Token obtained via MCP elicitation — persists for the lifetime of the server process.
@@ -62,6 +68,89 @@ function getEffectiveToken(): string | undefined {
     process.env.GH_TOKEN ||
     elicitedToken ||
     undefined
+  );
+}
+
+function getEffectiveCookies(): string | null {
+  return process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+}
+
+type TokenElicitationResult = "accepted" | "cancelled" | "unavailable";
+
+async function maybeElicitToken(
+  server: Server,
+): Promise<TokenElicitationResult> {
+  const caps = server.getClientCapabilities();
+  if (!caps?.elicitation) {
+    return "unavailable";
+  }
+
+  try {
+    const elicitParams: ElicitRequestFormParams = {
+      message:
+        "GitHub authentication required to upload images. Please provide a GitHub Personal Access Token with repo scope.",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          token: {
+            type: "string",
+            title: "GitHub Personal Access Token",
+            description:
+              "Create one at https://github.com/settings/tokens (needs repo scope for private repos, or public_repo for public repos)",
+          },
+        },
+        required: ["token"],
+      },
+    };
+
+    const result = await server.elicitInput(elicitParams);
+
+    if (
+      result.action === "accept" &&
+      result.content &&
+      typeof result.content["token"] === "string" &&
+      result.content["token"].length > 0
+    ) {
+      elicitedToken = result.content["token"];
+      return "accepted";
+    }
+
+    if (result.action === "decline" || result.action === "cancel") {
+      return "cancelled";
+    }
+  } catch {
+    return "unavailable";
+  }
+
+  return "unavailable";
+}
+
+function shouldAttemptTokenElicitation(preferredStrategy?: string): boolean {
+  const canUseTokenStrategy =
+    preferredStrategy === undefined ||
+    preferredStrategy === "release-asset" ||
+    preferredStrategy === "repo-branch";
+
+  if (!canUseTokenStrategy) {
+    return false;
+  }
+
+  if (getEffectiveToken() || getEffectiveCookies()) {
+    return false;
+  }
+
+  return true;
+}
+
+function shouldRetryWithElicitedToken(preferredStrategy?: string): boolean {
+  if (getEffectiveToken()) {
+    return false;
+  }
+
+  return (
+    preferredStrategy === undefined ||
+    preferredStrategy === "release-asset" ||
+    preferredStrategy === "repo-branch"
   );
 }
 
@@ -155,7 +244,8 @@ function createProtocolServer(): Server {
       switch (name) {
         case "upload_image":
           return await handleUploadImage(
-            args as Parameters<typeof handleUploadImage>[0],
+            server,
+            args as Parameters<typeof handleUploadImage>[1],
           );
         case "login":
           return await handleLogin(server);
@@ -471,15 +561,19 @@ export const mcpInternals = {
 /**
  * Handles the upload_image tool call.
  */
-async function handleUploadImage(args: {
-  filePath?: string;
-  content?: string;
-  filename?: string;
-  target: string;
-  strategy?: string;
-  format?: "markdown" | "url";
-}): Promise<{ content: TextContent[]; isError?: boolean }> {
+async function handleUploadImage(
+  server: Server,
+  args: {
+    filePath?: string;
+    content?: string;
+    filename?: string;
+    target: string;
+    strategy?: string;
+    format?: "markdown" | "url";
+  },
+): Promise<{ content: TextContent[]; isError?: boolean }> {
   let tempFilePath: string | undefined;
+  let attemptedTokenElicitation = false;
 
   try {
     let uploadPath = args.filePath;
@@ -507,6 +601,11 @@ async function handleUploadImage(args: {
       };
     }
 
+    if (shouldAttemptTokenElicitation(args.strategy)) {
+      attemptedTokenElicitation = true;
+      await maybeElicitToken(server);
+    }
+
     // Parse target
     const target = parseTarget(args.target);
 
@@ -521,15 +620,39 @@ async function handleUploadImage(args: {
         content: [
           {
             type: "text",
-            text: "Error: No authentication available",
+            text: `Error: ${AUTH_GUIDANCE}`,
           },
         ],
         isError: true,
       };
     }
 
-    // Upload
-    const result = await upload(uploadPath, target, strategies);
+    let result;
+    try {
+      result = await upload(uploadPath, target, strategies);
+    } catch (error) {
+      const canRetryWithToken =
+        !attemptedTokenElicitation &&
+        shouldRetryWithElicitedToken(args.strategy) &&
+        (error instanceof AuthenticationError || error instanceof UploadError);
+
+      if (!canRetryWithToken) {
+        throw error;
+      }
+
+      attemptedTokenElicitation = true;
+      const elicitationResult = await maybeElicitToken(server);
+      if (elicitationResult !== "accepted") {
+        throw error;
+      }
+
+      const retryStrategies = getStrategies(args.strategy);
+      if (retryStrategies.length === 0) {
+        throw error;
+      }
+
+      result = await upload(uploadPath, target, retryStrategies);
+    }
 
     // Format output
     const format = args.format || "markdown";
@@ -581,8 +704,7 @@ async function handleLogin(
 ): Promise<{ content: TextContent[] }> {
   // Short-circuit: already authenticated via environment or prior elicitation
   const existingToken = getEffectiveToken();
-  const existingCookies =
-    process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+  const existingCookies = getEffectiveCookies();
 
   if (existingToken || existingCookies) {
     const via = existingToken ? "token" : "browser session";
@@ -596,59 +718,27 @@ async function handleLogin(
     };
   }
 
-  // Attempt interactive elicitation when the MCP host supports it
-  const caps = server.getClientCapabilities();
-  if (caps?.elicitation) {
-    try {
-      const elicitParams: ElicitRequestFormParams = {
-        message:
-          "GitHub authentication required to upload images. Please provide a GitHub Personal Access Token with repo scope.",
-        requestedSchema: {
-          type: "object",
-          properties: {
-            token: {
-              type: "string",
-              title: "GitHub Personal Access Token",
-              description:
-                "Create one at https://github.com/settings/tokens (needs repo scope for private repos, or public_repo for public repos)",
-            },
-          },
-          required: ["token"],
+  const elicitationResult = await maybeElicitToken(server);
+  if (elicitationResult === "accepted") {
+    return {
+      content: [
+        {
+          type: "text",
+          text: "Authentication successful. GitHub token saved for this session. You can now use upload_image.",
         },
-      };
+      ],
+    };
+  }
 
-      const result = await server.elicitInput(elicitParams);
-
-      if (
-        result.action === "accept" &&
-        result.content &&
-        typeof result.content["token"] === "string" &&
-        result.content["token"].length > 0
-      ) {
-        elicitedToken = result.content["token"];
-        return {
-          content: [
-            {
-              type: "text",
-              text: "Authentication successful. GitHub token saved for this session. You can now use upload_image.",
-            },
-          ],
-        };
-      }
-
-      if (result.action === "decline" || result.action === "cancel") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "Authentication cancelled. Set the GITHUB_TOKEN environment variable or run 'gh-attach login' to authenticate.",
-            },
-          ],
-        };
-      }
-    } catch {
-      // Elicitation not supported at runtime — fall through to static guidance
-    }
+  if (elicitationResult === "cancelled") {
+    return {
+      content: [
+        {
+          type: "text",
+          text: "Authentication cancelled. Set the GITHUB_TOKEN environment variable or run 'gh-attach login' to authenticate.",
+        },
+      ],
+    };
   }
 
   // Static fallback guidance
@@ -667,8 +757,7 @@ async function handleLogin(
  */
 async function handleCheckAuth(): Promise<{ content: TextContent[] }> {
   const token = getEffectiveToken();
-  const cookies =
-    process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+  const cookies = getEffectiveCookies();
 
   const strategies: string[] = [];
   if (token) {
@@ -702,8 +791,7 @@ async function handleListStrategies(): Promise<{ content: TextContent[] }> {
   }> = [];
 
   const token = getEffectiveToken();
-  const cookies =
-    process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+  const cookies = getEffectiveCookies();
 
   strategies.push({
     name: "release-asset",
@@ -743,8 +831,7 @@ async function handleListStrategies(): Promise<{ content: TextContent[] }> {
 function getStrategies(preferredStrategy?: string): UploadStrategy[] {
   const strategies: UploadStrategy[] = [];
   const token = getEffectiveToken();
-  const cookies =
-    process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+  const cookies = getEffectiveCookies();
 
   if (preferredStrategy) {
     switch (preferredStrategy) {
