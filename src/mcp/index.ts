@@ -24,7 +24,15 @@ import {
   createCookieExtractionStrategy,
   createRepoBranchStrategy,
 } from "../core/strategies/index.js";
-import { getSessionCookies, loadSession } from "../core/session.js";
+import {
+  getSessionCookies,
+  getSessionToken,
+  loadSession,
+} from "../core/session.js";
+import {
+  resolveGitHubCliAuth,
+  type GitHubCliAccount,
+} from "../core/githubCliAuth.js";
 import { parseTarget } from "../core/target.js";
 import { validateFile } from "../core/validation.js";
 import { upload } from "../core/upload.js";
@@ -32,6 +40,7 @@ import {
   AuthenticationError,
   UploadError,
   type UploadStrategy,
+  type UploadTarget,
 } from "../core/types.js";
 
 // Get package version
@@ -49,7 +58,7 @@ function getPackageVersion(): string {
 
 const VERSION = getPackageVersion();
 const AUTH_GUIDANCE =
-  "No authentication available. Set GITHUB_TOKEN (or GH_TOKEN), GH_ATTACH_COOKIES, or run 'gh-attach login' to save a browser session.";
+  "No authentication available. Set GITHUB_TOKEN (or GH_TOKEN), run 'gh-attach login' to save a session token, provide GH_ATTACH_COOKIES, or authenticate with the GitHub CLI. If multiple gh accounts are signed in, use 'gh auth status' to inspect them and 'gh auth token --user <login>' to verify the right identity.";
 
 /**
  * Token obtained via MCP elicitation — persists for the lifetime of the server process.
@@ -58,21 +67,96 @@ const AUTH_GUIDANCE =
  */
 let elicitedToken: string | null = null;
 
-/**
- * Returns the effective GitHub API token from all sources:
- * environment variables → MCP-elicited token.
- */
-function getEffectiveToken(): string | undefined {
-  return (
-    process.env.GITHUB_TOKEN ||
-    process.env.GH_TOKEN ||
-    elicitedToken ||
-    undefined
-  );
+interface EffectiveAuthState {
+  token?: string;
+  tokenSource?: "env" | "elicited" | "session" | "gh-cli";
+  tokenUser?: string;
+  cookies: string | null;
+  cliAccounts: GitHubCliAccount[];
 }
 
-function getEffectiveCookies(): string | null {
-  return process.env.GH_ATTACH_COOKIES ?? getSessionCookies(loadSession());
+/**
+ * Returns the effective GitHub API token from all sources:
+ * environment variables → elicited token → saved session token → gh auth fallback.
+ */
+async function getEffectiveAuth(
+  target?: UploadTarget,
+): Promise<EffectiveAuthState> {
+  const session = loadSession();
+  const cookies = process.env.GH_ATTACH_COOKIES ?? getSessionCookies(session);
+
+  if (process.env.GITHUB_TOKEN) {
+    return {
+      token: process.env.GITHUB_TOKEN,
+      tokenSource: "env",
+      cookies,
+      cliAccounts: [],
+    };
+  }
+
+  if (process.env.GH_TOKEN) {
+    return {
+      token: process.env.GH_TOKEN,
+      tokenSource: "env",
+      cookies,
+      cliAccounts: [],
+    };
+  }
+
+  if (elicitedToken) {
+    return {
+      token: elicitedToken,
+      tokenSource: "elicited",
+      cookies,
+      cliAccounts: [],
+    };
+  }
+
+  let ghCliAuth: Awaited<ReturnType<typeof resolveGitHubCliAuth>> | undefined =
+    undefined;
+
+  if (target) {
+    ghCliAuth = await resolveGitHubCliAuth({
+      owner: target.owner,
+      repo: target.repo,
+    });
+
+    if (ghCliAuth.token) {
+      return {
+        token: ghCliAuth.token,
+        tokenSource: "gh-cli",
+        tokenUser: ghCliAuth.login,
+        cookies,
+        cliAccounts: ghCliAuth.accounts,
+      };
+    }
+  }
+
+  const sessionToken = getSessionToken(session);
+  if (sessionToken) {
+    return {
+      token: sessionToken,
+      tokenSource: "session",
+      tokenUser: session?.username,
+      cookies,
+      cliAccounts: [],
+    };
+  }
+
+  if (!ghCliAuth) {
+    ghCliAuth = await resolveGitHubCliAuth({
+      owner: target?.owner,
+      repo: target?.repo,
+    });
+  }
+
+  return {
+    token: ghCliAuth.token,
+    tokenSource: ghCliAuth.token ? "gh-cli" : undefined,
+    tokenUser: ghCliAuth.login,
+    cookies,
+    cliAccounts: ghCliAuth.accounts,
+  };
 }
 
 type TokenElicitationResult = "accepted" | "cancelled" | "unavailable";
@@ -125,7 +209,10 @@ async function maybeElicitToken(
   return "unavailable";
 }
 
-function shouldAttemptTokenElicitation(preferredStrategy?: string): boolean {
+function shouldAttemptTokenElicitation(
+  preferredStrategy: string | undefined,
+  auth: EffectiveAuthState,
+): boolean {
   const canUseTokenStrategy =
     preferredStrategy === undefined ||
     preferredStrategy === "release-asset" ||
@@ -135,15 +222,18 @@ function shouldAttemptTokenElicitation(preferredStrategy?: string): boolean {
     return false;
   }
 
-  if (getEffectiveToken() || getEffectiveCookies()) {
+  if (auth.token || auth.cookies) {
     return false;
   }
 
   return true;
 }
 
-function shouldRetryWithElicitedToken(preferredStrategy?: string): boolean {
-  if (getEffectiveToken()) {
+function shouldRetryWithElicitedToken(
+  preferredStrategy: string | undefined,
+  auth: EffectiveAuthState,
+): boolean {
+  if (auth.token) {
     return false;
   }
 
@@ -601,19 +691,22 @@ async function handleUploadImage(
       };
     }
 
-    if (shouldAttemptTokenElicitation(args.strategy)) {
-      attemptedTokenElicitation = true;
-      await maybeElicitToken(server);
-    }
-
     // Parse target
     const target = parseTarget(args.target);
 
     // Validate file
     await validateFile(uploadPath);
 
+    let auth = await getEffectiveAuth(target);
+
+    if (shouldAttemptTokenElicitation(args.strategy, auth)) {
+      attemptedTokenElicitation = true;
+      await maybeElicitToken(server);
+      auth = await getEffectiveAuth(target);
+    }
+
     // Build strategies list
-    const strategies = getStrategies(args.strategy);
+    const strategies = getStrategies(args.strategy, auth);
 
     if (strategies.length === 0) {
       return {
@@ -633,7 +726,7 @@ async function handleUploadImage(
     } catch (error) {
       const canRetryWithToken =
         !attemptedTokenElicitation &&
-        shouldRetryWithElicitedToken(args.strategy) &&
+        shouldRetryWithElicitedToken(args.strategy, auth) &&
         (error instanceof AuthenticationError || error instanceof UploadError);
 
       if (!canRetryWithToken) {
@@ -646,7 +739,8 @@ async function handleUploadImage(
         throw error;
       }
 
-      const retryStrategies = getStrategies(args.strategy);
+      auth = await getEffectiveAuth(target);
+      const retryStrategies = getStrategies(args.strategy, auth);
       if (retryStrategies.length === 0) {
         throw error;
       }
@@ -703,11 +797,18 @@ async function handleLogin(
   server: Server,
 ): Promise<{ content: TextContent[] }> {
   // Short-circuit: already authenticated via environment or prior elicitation
-  const existingToken = getEffectiveToken();
-  const existingCookies = getEffectiveCookies();
+  const auth = await getEffectiveAuth();
+  const existingToken = auth.token;
+  const existingCookies = auth.cookies;
 
   if (existingToken || existingCookies) {
-    const via = existingToken ? "token" : "browser session";
+    const via = existingToken
+      ? auth.tokenSource === "gh-cli" && auth.tokenUser
+        ? `GitHub CLI token (${auth.tokenUser})`
+        : auth.tokenSource === "session" && auth.tokenUser
+          ? `saved session token (${auth.tokenUser})`
+          : "token"
+      : "browser session";
     return {
       content: [
         {
@@ -735,7 +836,7 @@ async function handleLogin(
       content: [
         {
           type: "text",
-          text: "Authentication cancelled. Set the GITHUB_TOKEN environment variable or run 'gh-attach login' to authenticate.",
+          text: "Authentication cancelled. Set GITHUB_TOKEN, run 'gh-attach login', or rely on GitHub CLI auth (`gh auth status`, `gh auth token --user <login>`).",
         },
       ],
     };
@@ -746,7 +847,7 @@ async function handleLogin(
     content: [
       {
         type: "text",
-        text: `To authenticate, set the GITHUB_TOKEN environment variable with a GitHub personal access token, or run 'gh-attach login' to save a browser session.\n\nCreate a token at: https://github.com/settings/tokens`,
+        text: `To authenticate, set the GITHUB_TOKEN environment variable with a GitHub personal access token, run 'gh-attach login' to save a session token, or rely on GitHub CLI auth.\n\nUse 'gh auth status' to inspect signed-in identities and 'gh auth token --user <login>' to verify which account can access the target repository.\n\nCreate a token at: https://github.com/settings/tokens`,
       },
     ],
   };
@@ -756,25 +857,41 @@ async function handleLogin(
  * Handles the check_auth tool call.
  */
 async function handleCheckAuth(): Promise<{ content: TextContent[] }> {
-  const token = getEffectiveToken();
-  const cookies = getEffectiveCookies();
+  const auth = await getEffectiveAuth();
 
   const strategies: string[] = [];
-  if (token) {
+  if (auth.token) {
     strategies.push("release-asset", "repo-branch");
   }
-  if (cookies) {
+  if (auth.cookies) {
     strategies.push("browser-session");
   }
   strategies.push("cookie-extraction");
 
-  const authenticated = token !== undefined || cookies !== null;
+  const authenticated = auth.token !== undefined || auth.cookies !== null;
 
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify({ authenticated, strategies }, null, 2),
+        text: JSON.stringify(
+          {
+            authenticated,
+            strategies,
+            tokenSource: auth.tokenSource,
+            tokenUser: auth.tokenUser,
+            accounts: auth.cliAccounts.map(
+              ({ login, active, state, scopes }) => ({
+                login,
+                active,
+                state,
+                scopes,
+              }),
+            ),
+          },
+          null,
+          2,
+        ),
       },
     ],
   };
@@ -790,17 +907,17 @@ async function handleListStrategies(): Promise<{ content: TextContent[] }> {
     description: string;
   }> = [];
 
-  const token = getEffectiveToken();
-  const cookies = getEffectiveCookies();
+  const auth = await getEffectiveAuth();
 
   strategies.push({
     name: "release-asset",
-    available: !!token,
-    description: "Upload as GitHub release asset (requires GITHUB_TOKEN)",
+    available: !!auth.token,
+    description:
+      "Upload as GitHub release asset (requires a GitHub token from env, saved session, or gh auth)",
   });
   strategies.push({
     name: "browser-session",
-    available: !!cookies,
+    available: !!auth.cookies,
     description:
       "Upload via saved browser session (requires GH_ATTACH_COOKIES or saved session state)",
   });
@@ -811,8 +928,9 @@ async function handleListStrategies(): Promise<{ content: TextContent[] }> {
   });
   strategies.push({
     name: "repo-branch",
-    available: !!token,
-    description: "Upload to repository branch (requires GITHUB_TOKEN)",
+    available: !!auth.token,
+    description:
+      "Upload to repository branch (requires a GitHub token from env, saved session, or gh auth)",
   });
 
   return {
@@ -828,33 +946,38 @@ async function handleListStrategies(): Promise<{ content: TextContent[] }> {
 /**
  * Gets the list of available strategies.
  */
-function getStrategies(preferredStrategy?: string): UploadStrategy[] {
+function getStrategies(
+  preferredStrategy: string | undefined,
+  auth: EffectiveAuthState,
+): UploadStrategy[] {
   const strategies: UploadStrategy[] = [];
-  const token = getEffectiveToken();
-  const cookies = getEffectiveCookies();
 
   if (preferredStrategy) {
     switch (preferredStrategy) {
       case "release-asset":
-        if (token) strategies.push(createReleaseAssetStrategy(token));
+        if (auth.token) strategies.push(createReleaseAssetStrategy(auth.token));
         break;
       case "browser-session":
-        if (cookies) strategies.push(createBrowserSessionStrategy(cookies));
+        if (auth.cookies) {
+          strategies.push(createBrowserSessionStrategy(auth.cookies));
+        }
         break;
       case "cookie-extraction":
         strategies.push(createCookieExtractionStrategy());
         break;
       case "repo-branch":
-        if (token) strategies.push(createRepoBranchStrategy(token));
+        if (auth.token) strategies.push(createRepoBranchStrategy(auth.token));
         break;
     }
   } else {
     // Default order
-    if (cookies) strategies.push(createBrowserSessionStrategy(cookies));
+    if (auth.cookies) {
+      strategies.push(createBrowserSessionStrategy(auth.cookies));
+    }
     strategies.push(createCookieExtractionStrategy());
-    if (token) {
-      strategies.push(createReleaseAssetStrategy(token));
-      strategies.push(createRepoBranchStrategy(token));
+    if (auth.token) {
+      strategies.push(createReleaseAssetStrategy(auth.token));
+      strategies.push(createRepoBranchStrategy(auth.token));
     }
   }
 

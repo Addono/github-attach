@@ -76,6 +76,7 @@ const hoisted = vi.hoisted(() => ({
   mockParseTarget: vi.fn(),
   mockValidateFile: vi.fn(),
   mockUpload: vi.fn(),
+  mockResolveGitHubCliAuth: vi.fn(),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/server/index.js", () => {
@@ -118,6 +119,10 @@ vi.mock("../../../src/core/validation.js", () => ({
 
 vi.mock("../../../src/core/upload.js", () => ({
   upload: hoisted.mockUpload,
+}));
+
+vi.mock("../../../src/core/githubCliAuth.js", () => ({
+  resolveGitHubCliAuth: hoisted.mockResolveGitHubCliAuth,
 }));
 
 import { createMCPServer, mcpInternals } from "../../../src/mcp/index.js";
@@ -177,6 +182,7 @@ describe("MCP server handlers", () => {
     hoisted.mockParseTarget.mockReturnValue(hoisted.mockTarget);
     hoisted.mockValidateFile.mockResolvedValue(undefined);
     hoisted.mockUpload.mockResolvedValue(hoisted.mockUploadResult);
+    hoisted.mockResolveGitHubCliAuth.mockResolvedValue({ accounts: [] });
   });
 
   afterEach(() => {
@@ -269,6 +275,92 @@ describe("MCP server handlers", () => {
 
     expect(body.authenticated).toBe(true);
     expect(body.strategies).toEqual(["browser-session", "cookie-extraction"]);
+  });
+
+  it("reports authenticated status from saved session token", async () => {
+    saveSession({
+      token: "ghs_saved_session",
+      username: "saved-user",
+      expires: Date.now() + 86400000,
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: { name: "check_auth", arguments: {} },
+    });
+
+    const body = JSON.parse(response.content[0]?.text ?? "{}") as {
+      authenticated: boolean;
+      strategies: string[];
+      tokenSource?: string;
+      tokenUser?: string;
+    };
+
+    expect(body.authenticated).toBe(true);
+    expect(body.strategies).toEqual([
+      "release-asset",
+      "repo-branch",
+      "cookie-extraction",
+    ]);
+    expect(body.tokenSource).toBe("session");
+    expect(body.tokenUser).toBe("saved-user");
+  });
+
+  it("reports authenticated status from gh auth fallback", async () => {
+    hoisted.mockResolveGitHubCliAuth.mockResolvedValue({
+      token: "ghs_from_gh_cli",
+      login: "Addono",
+      accounts: [
+        {
+          login: "AKnapen-Ahold",
+          active: true,
+          state: "success",
+          scopes: "repo, workflow",
+        },
+        {
+          login: "Addono",
+          active: false,
+          state: "success",
+          scopes: "repo, workflow",
+        },
+      ],
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: { name: "check_auth", arguments: {} },
+    });
+
+    const body = JSON.parse(response.content[0]?.text ?? "{}") as {
+      authenticated: boolean;
+      strategies: string[];
+      tokenSource?: string;
+      tokenUser?: string;
+      accounts?: Array<{ login: string; active: boolean; state: string }>;
+    };
+
+    expect(body.authenticated).toBe(true);
+    expect(body.strategies).toEqual([
+      "release-asset",
+      "repo-branch",
+      "cookie-extraction",
+    ]);
+    expect(body.tokenSource).toBe("gh-cli");
+    expect(body.tokenUser).toBe("Addono");
+    expect(body.accounts).toEqual([
+      {
+        login: "AKnapen-Ahold",
+        active: true,
+        state: "success",
+        scopes: "repo, workflow",
+      },
+      {
+        login: "Addono",
+        active: false,
+        state: "success",
+        scopes: "repo, workflow",
+      },
+    ]);
   });
 
   it("lists strategy availability based on auth signals", async () => {
@@ -604,6 +696,110 @@ describe("MCP server handlers", () => {
     expect(passedStrategies.map((s) => s.name)).toEqual(["repo-branch"]);
   });
 
+  it("uses saved session token for token-backed strategies", async () => {
+    saveSession({
+      token: "ghs_saved_session",
+      username: "saved-user",
+      expires: Date.now() + 86400000,
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: {
+        name: "upload_image",
+        arguments: {
+          filePath: "/tmp/example.png",
+          target: "octo/repo#42",
+          strategy: "release-asset",
+        },
+      },
+    });
+
+    expect(response.isError).toBeUndefined();
+    expect(hoisted.mockCreateReleaseAssetStrategy).toHaveBeenCalledWith(
+      "ghs_saved_session",
+    );
+  });
+
+  it("uses gh auth fallback token for token-backed strategies", async () => {
+    hoisted.mockResolveGitHubCliAuth.mockResolvedValue({
+      token: "ghs_from_gh_cli",
+      login: "Addono",
+      accounts: [
+        {
+          login: "AKnapen-Ahold",
+          active: true,
+          state: "success",
+        },
+        {
+          login: "Addono",
+          active: false,
+          state: "success",
+        },
+      ],
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: {
+        name: "upload_image",
+        arguments: {
+          filePath: "/tmp/example.png",
+          target: "octo/repo#42",
+          strategy: "release-asset",
+          format: "url",
+        },
+      },
+    });
+
+    expect(response.isError).toBeUndefined();
+    expect(hoisted.mockCreateReleaseAssetStrategy).toHaveBeenCalledWith(
+      "ghs_from_gh_cli",
+    );
+  });
+
+  it("prefers target-aware gh auth over a saved session token during upload", async () => {
+    saveSession({
+      token: "ghs_saved_session",
+      username: "AKnapen-Ahold",
+      expires: Date.now() + 86400000,
+    });
+    hoisted.mockResolveGitHubCliAuth.mockResolvedValue({
+      token: "ghs_addono_token",
+      login: "Addono",
+      accounts: [
+        {
+          login: "AKnapen-Ahold",
+          active: true,
+          state: "success",
+        },
+        {
+          login: "Addono",
+          active: false,
+          state: "success",
+        },
+      ],
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: {
+        name: "upload_image",
+        arguments: {
+          filePath: "/tmp/example.png",
+          target: "Addono/gh-attach#16",
+          strategy: "release-asset",
+          format: "url",
+        },
+      },
+    });
+
+    expect(response.isError).toBeUndefined();
+    expect(hoisted.mockCreateReleaseAssetStrategy).toHaveBeenCalledWith(
+      "ghs_addono_token",
+    );
+  });
+
   it("uses browser-session strategy when explicitly selected with cookies", async () => {
     process.env.GH_ATTACH_COOKIES = "user_session=abc123; logged_in=yes";
 
@@ -684,6 +880,26 @@ describe("MCP server handlers", () => {
 
     expect(response.isError).toBeUndefined();
     expect(response.content[0]?.text).toContain("Already authenticated");
+  });
+
+  it("login tool reports already-authenticated when gh auth fallback is available", async () => {
+    hoisted.mockResolveGitHubCliAuth.mockResolvedValue({
+      token: "ghs_from_gh_cli",
+      login: "Addono",
+      accounts: [
+        {
+          login: "Addono",
+          active: true,
+          state: "success",
+        },
+      ],
+    });
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({ params: { name: "login", arguments: {} } });
+
+    expect(response.isError).toBeUndefined();
+    expect(response.content[0]?.text).toContain("GitHub CLI token (Addono)");
   });
 
   it("login tool uses elicitation when client supports it and user accepts", async () => {
