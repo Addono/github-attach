@@ -15,7 +15,7 @@ The system SHALL define a common `UploadStrategy` interface that all upload stra
 - GIVEN any upload strategy implementation
 - WHEN the strategy is instantiated
 - THEN it SHALL expose `name: string`, `upload(file, target): Promise<UploadResult>`, and `isAvailable(): Promise<boolean>` methods
-- AND `UploadResult` SHALL contain `{ url: string; markdown: string; strategy: string }`
+- AND `UploadResult` SHALL contain `{ url: string; downloadUrl?: string; markdown: string; strategy: string }`
 
 ### Requirement: Browser Session Strategy
 
@@ -84,6 +84,7 @@ The system SHALL support uploading images as GitHub release assets via the offic
 - AND the release SHALL have a body explaining it is a dummy release used by gh-attach as storage for image assets, and that it should not be deleted
 - AND upload the image as a release asset
 - AND return the asset download URL
+- AND the markdown field SHALL remain the inline-ready representation callers should prefer in GitHub comments and pull request bodies
 
 #### Scenario: Subsequent upload to existing release
 

@@ -8,6 +8,10 @@ import {
 
 // Mock the core modules
 vi.mock("../../../../src/core/upload.js", () => ({
+  normalizeUploadResult: vi.fn((result) => ({
+    ...result,
+    downloadUrl: result.downloadUrl ?? result.url,
+  })),
   upload: vi.fn(),
 }));
 vi.mock("../../../../src/core/validation.js", () => ({
@@ -97,6 +101,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![test.png](https://example.com/img.png)",
       strategy: "release-asset",
     });
@@ -112,6 +117,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![test.png](https://example.com/img.png)",
       strategy: "release-asset",
     });
@@ -121,13 +127,14 @@ describe("uploadCommand unit tests", () => {
       format: "url",
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith("https://example.com/img.png");
+    expect(consoleSpy).toHaveBeenCalledWith("https://example.com/download.png");
   });
 
   it("outputs JSON format when --format json", async () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![test.png](https://example.com/img.png)",
       strategy: "release-asset",
     });
@@ -140,6 +147,7 @@ describe("uploadCommand unit tests", () => {
     const logged = consoleSpy.mock.calls[0]?.[0] as string;
     const parsed = JSON.parse(logged);
     expect(parsed.url).toBe("https://example.com/img.png");
+    expect(parsed.downloadUrl).toBe("https://example.com/download.png");
     expect(parsed.strategy).toBe("release-asset");
   });
 
@@ -148,11 +156,13 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(upload)
       .mockResolvedValueOnce({
         url: "https://example.com/a.png",
+        downloadUrl: "https://example.com/download-a.png",
         markdown: "![a.png](https://example.com/a.png)",
         strategy: "release-asset",
       })
       .mockResolvedValueOnce({
         url: "https://example.com/b.png",
+        downloadUrl: "https://example.com/download-b.png",
         markdown: "![b.png](https://example.com/b.png)",
         strategy: "release-asset",
       });
@@ -170,6 +180,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![file.png](https://example.com/img.png)",
       strategy: "cookie-extraction",
     });
@@ -193,6 +204,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![file.png](https://example.com/img.png)",
       strategy: "release-asset",
     });
@@ -209,6 +221,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![file.png](https://example.com/img.png)",
       strategy: "release-asset",
     });
@@ -223,6 +236,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://user-images.githubusercontent.com/img.png",
+      downloadUrl: "https://user-images.githubusercontent.com/img.png",
       markdown:
         "![file.png](https://user-images.githubusercontent.com/img.png)",
       strategy: "browser-session",
@@ -239,6 +253,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![file.png](https://example.com/img.png)",
       strategy: "release-asset",
     });
@@ -274,6 +289,7 @@ describe("uploadCommand unit tests", () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({
       url: "https://example.com/img.png",
+      downloadUrl: "https://example.com/download.png",
       markdown: "![img.png](https://example.com/img.png)",
       strategy: "release-asset",
     });

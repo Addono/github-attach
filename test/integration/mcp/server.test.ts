@@ -60,8 +60,13 @@ vi.mock("../../../src/core/validation.js", () => ({
 }));
 
 vi.mock("../../../src/core/upload.js", () => ({
+  normalizeUploadResult: vi.fn((result) => ({
+    ...result,
+    downloadUrl: result.downloadUrl ?? result.url,
+  })),
   upload: vi.fn().mockResolvedValue({
     url: "https://example.com/uploaded",
+    downloadUrl: "https://example.com/downloaded",
     markdown: "![image](https://example.com/uploaded)",
     strategy: "test-strategy",
   }),
@@ -309,7 +314,7 @@ describe("MCP Server Integration", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url"] },
+          format: { enum: ["markdown", "url", "json"] },
         },
         required: ["target"],
       };
@@ -325,7 +330,7 @@ describe("MCP Server Integration", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url"] },
+          format: { enum: ["markdown", "url", "json"] },
         },
         required: ["target"],
       };
@@ -341,7 +346,7 @@ describe("MCP Server Integration", () => {
           filename: { type: "string" },
           target: { type: "string" },
           strategy: { type: "string" },
-          format: { enum: ["markdown", "url"] },
+          format: { enum: ["markdown", "url", "json"] },
         },
         required: ["target"],
       };
@@ -350,10 +355,11 @@ describe("MCP Server Integration", () => {
     });
 
     it("upload_image should support output format options", () => {
-      const formats = ["markdown", "url"];
+      const formats = ["markdown", "url", "json"];
 
       expect(formats).toContain("markdown");
       expect(formats).toContain("url");
+      expect(formats).toContain("json");
     });
   });
 });

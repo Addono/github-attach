@@ -46,6 +46,7 @@ const hoisted = vi.hoisted(() => ({
   },
   mockUploadResult: {
     url: "https://example.com/uploaded.png",
+    downloadUrl: "https://example.com/downloaded.png",
     markdown: "![uploaded](https://example.com/uploaded.png)",
     strategy: "release-asset",
   },
@@ -117,6 +118,10 @@ vi.mock("../../../src/core/validation.js", () => ({
 }));
 
 vi.mock("../../../src/core/upload.js", () => ({
+  normalizeUploadResult: vi.fn((result) => ({
+    ...result,
+    downloadUrl: result.downloadUrl ?? result.url,
+  })),
   upload: hoisted.mockUpload,
 }));
 
@@ -211,7 +216,11 @@ describe("MCP server handlers", () => {
     const uploadSchema = uploadTool?.inputSchema as {
       properties: { format: { enum: string[] } };
     };
-    expect(uploadSchema.properties.format.enum).toEqual(["markdown", "url"]);
+    expect(uploadSchema.properties.format.enum).toEqual([
+      "markdown",
+      "url",
+      "json",
+    ]);
   });
 
   it("reports unauthenticated status with default cookie-extraction strategy", async () => {
@@ -337,12 +346,36 @@ describe("MCP server handlers", () => {
       },
     });
 
-    expect(response.content[0]?.text).toBe(hoisted.mockUploadResult.url);
+    expect(response.content[0]?.text).toBe(
+      hoisted.mockUploadResult.downloadUrl,
+    );
     const passedStrategies = (hoisted.mockUpload.mock.calls[0]?.[2] ??
       []) as UploadStrategy[];
     expect(passedStrategies.map((strategy) => strategy.name)).toEqual([
       "release-asset",
     ]);
+  });
+
+  it("supports json output with both inline and download links", async () => {
+    process.env.GITHUB_TOKEN = "ghs_test";
+
+    const { call } = await startServerAndGetHandlers();
+    const response = await call({
+      params: {
+        name: "upload_image",
+        arguments: {
+          filePath: "/tmp/example.png",
+          target: "octo/repo#42",
+          strategy: "release-asset",
+          format: "json",
+        },
+      },
+    });
+
+    const body = JSON.parse(response.content[0]?.text ?? "{}");
+    expect(body.url).toBe(hoisted.mockUploadResult.url);
+    expect(body.downloadUrl).toBe(hoisted.mockUploadResult.downloadUrl);
+    expect(body.markdown).toBe(hoisted.mockUploadResult.markdown);
   });
 
   it("returns a validation error when file input is missing", async () => {

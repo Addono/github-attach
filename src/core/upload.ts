@@ -38,3 +38,13 @@ export async function upload(
     })),
   );
 }
+
+/**
+ * Ensures upload results always include a stable download URL field.
+ */
+export function normalizeUploadResult(result: UploadResult): UploadResult {
+  return {
+    ...result,
+    downloadUrl: result.downloadUrl ?? result.url,
+  };
+}

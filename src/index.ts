@@ -17,7 +17,8 @@
  *   number: 42
  * }, [strategy]);
  *
- * console.log(result.markdown); // ![](https://...)
+ * console.log(result.markdown); // ![](https://...) inline-ready for GitHub
+ * console.log(result.downloadUrl); // raw release asset link
  * ```
  *
  * @module gh-attach

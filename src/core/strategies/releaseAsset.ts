@@ -6,6 +6,26 @@ import type { UploadResult, UploadStrategy, UploadTarget } from "../types.js";
 
 const ASSETS_TAG = "_gh-attach-assets";
 
+function getAssetContentType(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase();
+
+  switch (ext) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "svg":
+      return "image/svg+xml";
+    case "webp":
+      return "image/webp";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 function getHttpStatus(err: unknown): number | undefined {
   if (typeof err !== "object" || err === null) return undefined;
   const status = (err as { status?: unknown }).status;
@@ -93,6 +113,7 @@ export function createReleaseAssetStrategy(token: string): UploadStrategy {
 
         return {
           url,
+          downloadUrl: url,
           markdown,
           strategy: "release-asset",
         };
@@ -291,6 +312,8 @@ async function uploadAsset(
     }
 
     // Octokit's type signature expects string but accepts Buffer for binary uploads
+    const contentType = getAssetContentType(filename);
+
     const { data: asset } = await octokit.rest.repos.uploadReleaseAsset({
       owner: target.owner,
       repo: target.repo,
@@ -299,7 +322,7 @@ async function uploadAsset(
       // Cast Buffer to string to satisfy TypeScript; Octokit handles Buffer correctly at runtime
       data: data as unknown as string,
       headers: {
-        "content-type": "application/octet-stream",
+        "content-type": contentType,
         "content-length": data.length,
       },
     });

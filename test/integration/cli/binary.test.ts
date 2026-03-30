@@ -81,10 +81,12 @@ describe("ESM Bundle", () => {
 });
 
 describe("Binary Artifacts", () => {
+  const canExecuteLinuxBinary = process.platform === "linux";
+
   it("should produce Linux x64 binary via pkg", () => {
     const binPath = resolve(ROOT, "bin/gh-attach-linux-amd64");
-    // Only test if binaries have been built (they may not exist in CI without package step)
-    if (!existsSync(binPath)) {
+    // Only execute native Linux binary on Linux hosts.
+    if (!existsSync(binPath) || !canExecuteLinuxBinary) {
       return;
     }
     const output = execSync(`${binPath} --version`, {
@@ -98,7 +100,7 @@ describe("Binary Artifacts", () => {
 
   it("should produce Linux binary that can display help", () => {
     const binPath = resolve(ROOT, "bin/gh-attach-linux-amd64");
-    if (!existsSync(binPath)) {
+    if (!existsSync(binPath) || !canExecuteLinuxBinary) {
       return;
     }
     const output = execSync(`${binPath} --help`, {
@@ -110,7 +112,7 @@ describe("Binary Artifacts", () => {
 
   it("should produce Linux binary that handles upload subcommand", () => {
     const binPath = resolve(ROOT, "bin/gh-attach-linux-amd64");
-    if (!existsSync(binPath)) {
+    if (!existsSync(binPath) || !canExecuteLinuxBinary) {
       return;
     }
     const output = execSync(`${binPath} upload --help`, {

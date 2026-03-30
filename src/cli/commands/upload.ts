@@ -12,7 +12,7 @@ import {
 } from "../../core/session.js";
 import { parseTarget } from "../../core/target.js";
 import { validateFile } from "../../core/validation.js";
-import { upload } from "../../core/upload.js";
+import { normalizeUploadResult, upload } from "../../core/upload.js";
 import { loadConfig } from "./config.js";
 import { debug } from "../output.js";
 import { ValidationError, NoStrategyAvailableError } from "../../core/types.js";
@@ -169,7 +169,9 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
       await validateFile(file);
 
       // Upload file — errors propagate with original types
-      const result = await upload(file, uploadTarget, strategies);
+      const result = normalizeUploadResult(
+        await upload(file, uploadTarget, strategies),
+      );
       results.push(result);
     }
 
@@ -178,7 +180,7 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
     for (const result of results) {
       switch (format) {
         case "url":
-          console.log(result.url);
+          console.log(result.downloadUrl || result.url);
           break;
         case "json":
           console.log(JSON.stringify(result, null, 2));

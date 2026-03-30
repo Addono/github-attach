@@ -119,6 +119,7 @@ describe("Release Asset Strategy", () => {
       const result = await strategy.upload(mockFilePath, mockTarget);
 
       expect(result.url).toBe(mockAsset.browser_download_url);
+      expect(result.downloadUrl).toBe(mockAsset.browser_download_url);
       expect(result.markdown).toContain("![test.png]");
       expect(result.strategy).toBe("release-asset");
       expect(
@@ -161,6 +162,7 @@ describe("Release Asset Strategy", () => {
       const result = await strategy.upload(mockFilePath, mockTarget);
 
       expect(result.url).toBe(mockAsset.browser_download_url);
+      expect(result.downloadUrl).toBe(mockAsset.browser_download_url);
       expect(mockOctokitInstance.rest.repos.createRelease).toHaveBeenCalledWith(
         {
           owner: mockTarget.owner,
@@ -207,6 +209,7 @@ describe("Release Asset Strategy", () => {
       const result = await strategy.upload(mockFilePath, mockTarget);
 
       expect(result.url).toBe(newAsset.browser_download_url);
+      expect(result.downloadUrl).toBe(newAsset.browser_download_url);
       // Verify that uploadReleaseAsset was called with a modified filename
       const uploadCall =
         mockOctokitInstance.rest.repos.uploadReleaseAsset.mock.calls[0][0];
@@ -449,6 +452,7 @@ describe("Release Asset Strategy", () => {
 
       const result = await strategy.upload(mockFilePath, mockTarget);
       expect(result.url).toBe(newAsset.browser_download_url);
+      expect(result.downloadUrl).toBe(newAsset.browser_download_url);
       const uploadCall =
         mockOctokitInstance.rest.repos.uploadReleaseAsset.mock.calls[0][0];
       expect(uploadCall.name).toMatch(/Makefile-[a-z0-9]{6}/);
@@ -515,10 +519,36 @@ describe("Release Asset Strategy", () => {
 
       const result = await strategy.upload(mockFilePath, mockTarget);
       expect(result.url).toBe(mockAsset.browser_download_url);
+      expect(result.downloadUrl).toBe(mockAsset.browser_download_url);
       // Should use original filename since listing failed
       const uploadCall =
         mockOctokitInstance.rest.repos.uploadReleaseAsset.mock.calls[0][0];
       expect(uploadCall.name).toBe("test.png");
+    });
+
+    it("uploads release assets with image content type for inline rendering", async () => {
+      const strategy = createReleaseAssetStrategy("valid-token");
+      const mockRelease = { id: 123 };
+      const mockAsset = {
+        name: "test.png",
+        browser_download_url: "https://github.com/releases/download/test.png",
+      };
+
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockResolvedValue({
+        data: mockRelease,
+      });
+      mockOctokitInstance.rest.repos.listReleaseAssets.mockResolvedValue({
+        data: [],
+      });
+      mockOctokitInstance.rest.repos.uploadReleaseAsset.mockResolvedValue({
+        data: mockAsset,
+      });
+
+      await strategy.upload("/tmp/test.png", mockTarget);
+
+      const uploadCall =
+        mockOctokitInstance.rest.repos.uploadReleaseAsset.mock.calls[0][0];
+      expect(uploadCall.headers["content-type"]).toBe("image/png");
     });
   });
 });

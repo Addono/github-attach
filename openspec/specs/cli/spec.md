@@ -36,7 +36,7 @@ The system SHALL provide an `upload` command as the primary action.
 
 - GIVEN a valid session and a file path
 - WHEN the user runs `gh-attach upload ./screenshot.png --target owner/repo#42`
-- THEN it SHALL upload the image and print the markdown embed to stdout
+- THEN it SHALL upload the image and print the inline-ready markdown embed to stdout
 - AND exit with code 0
 
 #### Scenario: Upload with explicit strategy
@@ -55,19 +55,20 @@ The system SHALL provide an `upload` command as the primary action.
 
 - GIVEN the `--format url` flag
 - WHEN the upload completes
-- THEN it SHALL print only the raw URL (no markdown wrapping)
+- THEN it SHALL print only the raw download URL (no markdown wrapping)
 
 #### Scenario: Upload with markdown output (default)
 
 - GIVEN no `--format` flag or `--format markdown`
 - WHEN the upload completes
 - THEN it SHALL print `![filename](url)` to stdout
+- AND that markdown output SHALL be the recommended representation for inline rendering on GitHub
 
 #### Scenario: Upload with JSON output
 
 - GIVEN the `--format json` flag
 - WHEN the upload completes
-- THEN it SHALL print `{ "url": "...", "markdown": "...", "strategy": "..." }` to stdout
+- THEN it SHALL print `{ "url": "...", "downloadUrl": "...", "markdown": "...", "strategy": "..." }` to stdout
 
 #### Scenario: Multiple files
 

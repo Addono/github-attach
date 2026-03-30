@@ -7,7 +7,8 @@
 import { randomUUID } from "crypto";
 import { writeFileSync, unlinkSync, readFileSync, existsSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { dirname, join, resolve } from "path";
+import { fileURLToPath } from "url";
 import { createServer } from "http";
 import type { IncomingMessage } from "http";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -27,13 +28,22 @@ import {
 import { getSessionCookies, loadSession } from "../core/session.js";
 import { parseTarget } from "../core/target.js";
 import { validateFile } from "../core/validation.js";
-import { upload } from "../core/upload.js";
+import { normalizeUploadResult, upload } from "../core/upload.js";
 import type { UploadStrategy } from "../core/types.js";
 
 // Get package version
 function getPackageVersion(): string {
   try {
-    const pkgPath = new URL("../../package.json", import.meta.url).pathname;
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const pkgPath = [
+      resolve(dir, "../..", "package.json"),
+      resolve(dir, "..", "package.json"),
+    ].find((candidate) => existsSync(candidate));
+
+    if (!pkgPath) {
+      throw new Error("package.json not found");
+    }
+
     const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
       version: string;
     };
@@ -71,7 +81,8 @@ function getEffectiveToken(): string | undefined {
 const TOOLS = [
   {
     name: "upload_image",
-    description: "Upload an image to GitHub and get a markdown embed URL",
+    description:
+      "Upload an image to GitHub and get inline-ready markdown plus raw URLs",
     inputSchema: {
       type: "object",
       properties: {
@@ -94,7 +105,7 @@ const TOOLS = [
         },
         format: {
           type: "string",
-          enum: ["markdown", "url"],
+          enum: ["markdown", "url", "json"],
           description: "Output format",
         },
       },
@@ -477,7 +488,7 @@ async function handleUploadImage(args: {
   filename?: string;
   target: string;
   strategy?: string;
-  format?: "markdown" | "url";
+  format?: "markdown" | "url" | "json";
 }): Promise<{ content: TextContent[]; isError?: boolean }> {
   let tempFilePath: string | undefined;
 
@@ -529,14 +540,19 @@ async function handleUploadImage(args: {
     }
 
     // Upload
-    const result = await upload(uploadPath, target, strategies);
+    const result = normalizeUploadResult(
+      await upload(uploadPath, target, strategies),
+    );
 
     // Format output
     const format = args.format || "markdown";
     let output: string;
     switch (format) {
+      case "json":
+        output = JSON.stringify(result, null, 2);
+        break;
       case "url":
-        output = result.url;
+        output = result.downloadUrl || result.url;
         break;
       case "markdown":
       default:

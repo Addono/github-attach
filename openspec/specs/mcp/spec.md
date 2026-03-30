@@ -24,8 +24,8 @@ The system SHALL expose an `upload_image` tool.
 
 - GIVEN an MCP client lists available tools
 - THEN `upload_image` SHALL be listed with:
-  - `description`: "Upload an image to GitHub and get a markdown embed URL"
-  - `inputSchema`: `{ filePath: string, target: string, strategy?: string, format?: "markdown" | "url" }`
+  - `description`: "Upload an image to GitHub and get inline-ready markdown plus raw URLs"
+  - `inputSchema`: `{ filePath: string, target: string, strategy?: string, format?: "markdown" | "url" | "json" }`
 
 #### Scenario: Successful upload via tool call
 
@@ -33,6 +33,13 @@ The system SHALL expose an `upload_image` tool.
 - WHEN the MCP client calls `upload_image`
 - THEN it SHALL upload the image using the core library
 - AND return `{ type: "text", text: "<markdown or url>" }`
+
+#### Scenario: Successful upload via JSON tool call
+
+- GIVEN a valid `filePath` and `target`
+- WHEN the MCP client calls `upload_image` with `format: "json"`
+- THEN it SHALL return JSON containing `url`, `downloadUrl`, `markdown`, and `strategy`
+- AND the `markdown` field SHALL be the recommended inline-safe representation for GitHub comments and pull request bodies
 
 #### Scenario: Upload with base64 content
 

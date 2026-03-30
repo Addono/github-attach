@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { upload } from "../../../src/core/upload.js";
+import { normalizeUploadResult, upload } from "../../../src/core/upload.js";
 import {
   NoStrategyAvailableError,
   type UploadStrategy,
@@ -60,6 +60,16 @@ describe("upload", () => {
     const strategies = [createMockStrategy("test", true)];
     const result = await upload("screenshot.png", mockTarget, strategies);
     expect(result.markdown).toContain("![screenshot.png]");
+  });
+
+  it("normalizes missing downloadUrl to match url", () => {
+    const result = normalizeUploadResult({
+      url: "https://example.com/download.png",
+      markdown: "![image](https://example.com/display.png)",
+      strategy: "release-asset",
+    });
+
+    expect(result.downloadUrl).toBe("https://example.com/download.png");
   });
 
   describe("spec compliance — strategy selection and fallback", () => {

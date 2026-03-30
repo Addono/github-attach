@@ -20,9 +20,19 @@ export interface UploadTarget {
  * Result of a successful image upload.
  */
 export interface UploadResult {
-  /** Direct URL to the uploaded image */
+  /**
+   * Raw URL to the uploaded asset.
+   *
+   * For inline rendering in GitHub comments and pull request bodies, prefer the
+   * `markdown` field.
+   */
   url: string;
-  /** Markdown markdown format: `![](url)` */
+  /**
+   * Explicit raw download URL for callers that want to distinguish it from the
+   * inline-ready markdown representation. Defaults to `url` when omitted.
+   */
+  downloadUrl?: string;
+  /** Inline-ready GitHub markdown image embed: `![](url)` */
   markdown: string;
   /** Name of the strategy used */
   strategy: string;

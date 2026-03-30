@@ -98,7 +98,9 @@ export function createProgram(): Command {
 
   program
     .command("upload")
-    .description("Upload an image and get a markdown embed URL")
+    .description(
+      "Upload an image and get inline-ready markdown plus raw asset URLs",
+    )
     .argument("[files...]", "Image file(s) to upload")
     .option(
       "--target <ref>",
@@ -108,7 +110,11 @@ export function createProgram(): Command {
       "--strategy <name>",
       "Upload strategy: release-asset, repo-branch, browser-session, cookie-extraction",
     )
-    .option("--format <type>", "Output format: markdown, url, json", "markdown")
+    .option(
+      "--format <type>",
+      "Output format: markdown (inline-ready), url (raw download link), json",
+      "markdown",
+    )
     .option("--stdin", "Read image from stdin")
     .option("--filename <name>", "Filename when using --stdin")
     .action(async (files, options) => {
