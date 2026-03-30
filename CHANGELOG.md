@@ -1,3 +1,10 @@
+## [1.5.3](https://github.com/Addono/gh-attach/compare/v1.5.2...v1.5.3) (2026-03-30)
+
+
+### Bug Fixes
+
+* handle string chunks from stdin ([fe23f32](https://github.com/Addono/gh-attach/commit/fe23f32c68b9f4016daf6a08ef60bb20c496473a))
+
 ## [1.5.2](https://github.com/Addono/gh-attach/compare/v1.5.1...v1.5.2) (2026-03-23)
 
 
