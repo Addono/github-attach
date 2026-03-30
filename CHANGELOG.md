@@ -1,3 +1,12 @@
+## [1.5.5](https://github.com/Addono/gh-attach/compare/v1.5.4...v1.5.5) (2026-03-30)
+
+
+### Bug Fixes
+
+* align release tests with computed build version ([#51](https://github.com/Addono/gh-attach/issues/51)) ([f2bd3d6](https://github.com/Addono/gh-attach/commit/f2bd3d6f005515db55fed5b186e6e690ddcdc135))
+* inject release version during binary build ([#50](https://github.com/Addono/gh-attach/issues/50)) ([6496db2](https://github.com/Addono/gh-attach/commit/6496db2ff3f1aec626654f934d38a60027b7dd8f))
+* validate releases before publishing ([#52](https://github.com/Addono/gh-attach/issues/52)) ([dc6b449](https://github.com/Addono/gh-attach/commit/dc6b449d83e85ab590eb9538042be89c99bc7721))
+
 ## [1.5.4](https://github.com/Addono/gh-attach/compare/v1.5.3...v1.5.4) (2026-03-30)
 
 
