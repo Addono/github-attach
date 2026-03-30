@@ -1,3 +1,13 @@
+## [1.5.4](https://github.com/Addono/gh-attach/compare/v1.5.3...v1.5.4) (2026-03-30)
+
+
+### Bug Fixes
+
+* build gh extension binaries on native runners ([#46](https://github.com/Addono/gh-attach/issues/46)) ([2240c52](https://github.com/Addono/gh-attach/commit/2240c52c7dbfa0bb3d96be661fa0d513da43735c))
+* restore release artifact execute bits ([#49](https://github.com/Addono/gh-attach/issues/49)) ([2fc46f7](https://github.com/Addono/gh-attach/commit/2fc46f797b886c931730a915d21b29cd8bed0ac3))
+* run pkg through the Windows shell ([#48](https://github.com/Addono/gh-attach/issues/48)) ([5c92f00](https://github.com/Addono/gh-attach/commit/5c92f00707a75c8e06ae01a864bae22ccc60ec93))
+* use supported macOS runner for release builds ([#47](https://github.com/Addono/gh-attach/issues/47)) ([7c9d5a4](https://github.com/Addono/gh-attach/commit/7c9d5a43dde65139173fab213e571540afd63cb6))
+
 ## [1.5.3](https://github.com/Addono/gh-attach/compare/v1.5.2...v1.5.3) (2026-03-30)
 
 
