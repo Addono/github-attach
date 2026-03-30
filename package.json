@@ -93,7 +93,7 @@
     "@typescript-eslint/parser": "^8.57.0",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.0.0",
-    "msw": "^2.0.0",
+    "msw": "^2.12.14",
     "pkg": "^5.8.1",
     "prettier": "^3.0.0",
     "semantic-release": "^25.0.3",
