@@ -92,6 +92,8 @@ jobs:
           path: bin
           pattern: gh-attach-*
           merge-multiple: true
+      - name: Restore binary permissions
+        run: chmod +x bin/gh-attach-linux-amd64 bin/gh-attach-darwin-amd64 bin/gh-attach-darwin-arm64
       - name: Verify packaged binaries
         run: |
           test -f bin/gh-attach-linux-amd64
