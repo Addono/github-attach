@@ -1,3 +1,10 @@
+## [1.5.7](https://github.com/Addono/gh-attach/compare/v1.5.6...v1.5.7) (2026-03-30)
+
+
+### Bug Fixes
+
+* fall back to gh auth in MCP server ([#60](https://github.com/Addono/gh-attach/issues/60)) ([7a6289c](https://github.com/Addono/gh-attach/commit/7a6289c9c45deb9cf9a94e1eee9529fd445006b8))
+
 ## [1.5.6](https://github.com/Addono/gh-attach/compare/v1.5.5...v1.5.6) (2026-03-30)
 
 
