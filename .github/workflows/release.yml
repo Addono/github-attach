@@ -103,6 +103,8 @@ jobs:
           test -f bin/gh-attach-darwin-arm64
           test -f bin/gh-attach-windows-amd64.exe
       - run: npm test
+        env:
+          GH_ATTACH_BUILD_VERSION: ${{ needs.next-version.outputs.version }}
       - name: Release
         run: npx semantic-release
         env:
