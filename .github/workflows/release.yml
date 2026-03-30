@@ -46,7 +46,7 @@ jobs:
           - os: ubuntu-latest
             asset_name: gh-attach-linux-amd64
             pkg_target: node18-linux-x64
-          - os: macos-13
+          - os: macos-14
             asset_name: gh-attach-darwin-amd64
             pkg_target: node18-macos-x64
           - os: macos-14
