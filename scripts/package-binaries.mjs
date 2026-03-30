@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, renameSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -60,6 +60,21 @@ const binDir = resolve("bin");
 
 mkdirSync(binDir, { recursive: true });
 
+function runPkg(args) {
+  const result = spawnSync(pkgPath, args, {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
 if (selectedTargets.length === 1) {
   const [{ assetName, target }] = selectedTargets;
   const destinationPath = resolve(binDir, assetName);
@@ -68,40 +83,28 @@ if (selectedTargets.length === 1) {
     rmSync(destinationPath, { force: true });
   }
 
-  execFileSync(
-    pkgPath,
-    [
-      "dist/cli-pkg.cjs",
-      "--output",
-      destinationPath,
-      "--compress",
-      "GZip",
-      "--targets",
-      target,
-    ],
-    {
-      stdio: "inherit",
-    },
-  );
+  runPkg([
+    "dist/cli-pkg.cjs",
+    "--output",
+    destinationPath,
+    "--compress",
+    "GZip",
+    "--targets",
+    target,
+  ]);
 
   process.exit(0);
 }
 
-execFileSync(
-  pkgPath,
-  [
-    "dist/cli-pkg.cjs",
-    "--out-path",
-    "bin",
-    "--compress",
-    "GZip",
-    "--targets",
-    selectedTargets.map(({ target }) => target).join(","),
-  ],
-  {
-    stdio: "inherit",
-  },
-);
+runPkg([
+  "dist/cli-pkg.cjs",
+  "--out-path",
+  "bin",
+  "--compress",
+  "GZip",
+  "--targets",
+  selectedTargets.map(({ target }) => target).join(","),
+]);
 
 for (const { pkgOutput, assetName } of selectedTargets) {
   const sourcePath = resolve(binDir, pkgOutput);
