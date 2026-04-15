@@ -167,8 +167,11 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "gh-attach": {
-      "command": "gh",
-      "args": ["attach", "mcp", "--transport", "stdio"]
+      "command": "bash",
+      "args": [
+        "-lc",
+        "export GITHUB_TOKEN=\"$(gh auth token)\" && exec gh attach mcp --transport stdio"
+      ]
     }
   }
 }
@@ -203,8 +206,11 @@ Add to `.vscode/settings.json`:
     "servers": {
       "gh-attach": {
         "type": "local",
-        "command": "gh",
-        "args": ["attach", "mcp", "--transport", "stdio"],
+        "command": "bash",
+        "args": [
+          "-lc",
+          "export GITHUB_TOKEN=\"$(gh auth token)\" && exec gh attach mcp --transport stdio"
+        ],
         "tools": ["*"]
       }
     }
