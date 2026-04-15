@@ -167,12 +167,17 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "gh-attach": {
-      "command": "gh",
-      "args": ["attach", "mcp", "--transport", "stdio"]
+      "command": "bash",
+      "args": [
+        "-lc",
+        "export GITHUB_TOKEN=\"$(gh auth token)\" && exec gh attach mcp --transport stdio"
+      ]
     }
   }
 }
 ```
+
+This wrapper requires `bash` and an authenticated GitHub CLI session (`gh auth login`). It resolves the token at startup instead of storing it in the config file, but the token is still present in the MCP server process environment while it is running. If `bash` is unavailable, use the standalone CLI setup instead.
 
 ### VS Code / GitHub Copilot
 
@@ -203,14 +208,19 @@ Add to `.vscode/settings.json`:
     "servers": {
       "gh-attach": {
         "type": "local",
-        "command": "gh",
-        "args": ["attach", "mcp", "--transport", "stdio"],
+        "command": "bash",
+        "args": [
+          "-lc",
+          "export GITHUB_TOKEN=\"$(gh auth token)\" && exec gh attach mcp --transport stdio"
+        ],
         "tools": ["*"]
       }
     }
   }
 }
 ```
+
+This wrapper requires `bash` and an authenticated GitHub CLI session (`gh auth login`). It resolves the token at startup instead of storing it in the config file, but the token is still present in the MCP server process environment while it is running. If `bash` is unavailable, use the standalone CLI setup instead.
 
 If you prefer `npx`, use `command: "npx"` and prepend `--registry=https://npm.pkg.github.com`, `@addono/gh-attach` to the `args` array.
 
