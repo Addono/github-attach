@@ -2,7 +2,7 @@ schema: spec-driven
 
 context: |
   Project: gh-attach — CLI tool and MCP server for attaching images to GitHub issues, PRs, and comments.
-  Tech stack: TypeScript, Node.js, Commander.js, Vitest, @modelcontextprotocol/server, @github/copilot-sdk
+  Tech stack: TypeScript, Node.js, Commander.js, Vitest, @modelcontextprotocol/server
   Build: tsup (ESM output), semantic-release for versioning
   Distribution: npm package, gh CLI extension, MCP server (stdio + HTTP)
   Testing: Vitest for unit tests, msw for integration, real GitHub E2E suite

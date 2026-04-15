@@ -296,23 +296,6 @@ gh api repos/{owner}/{repo}/branches/main/protection \
   --field restrictions=null
 ```
 
-### Ralph Loop (Autonomous Development)
-
-This project uses a [Ralph Loop](https://ghuntley.com/ralph/) for autonomous implementation:
-
-```bash
-# Planning mode — generate/update IMPLEMENTATION_PLAN.md
-npx tsx ralph-loop.ts plan
-
-# Building mode — implement tasks from the plan
-npx tsx ralph-loop.ts build
-
-# Limit iterations
-npx tsx ralph-loop.ts build 10
-```
-
-The loop rotates models after each evaluation cycle and posts fitness scores to a GitHub issue for tracking.
-
 ## Specifications
 
 See [`openspec/specs/`](openspec/specs/) for the full OpenSpec specifications:
@@ -322,7 +305,6 @@ See [`openspec/specs/`](openspec/specs/) for the full OpenSpec specifications:
 - [MCP Server](openspec/specs/mcp/spec.md)
 - [Testing](openspec/specs/testing/spec.md)
 - [CI/CD](openspec/specs/ci-cd/spec.md)
-- [Ralph Loop](openspec/specs/ralph-loop/spec.md)
 
 ## License
 

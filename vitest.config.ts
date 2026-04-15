@@ -9,10 +9,7 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.d.ts",
-        "src/ralph/**",
-        "ralph-loop.ts",
         "commitlint.config.js",
-        "**/ralph-loop.ts",
         "**/commitlint.config.js",
         "**/*.config.js",
       ],
