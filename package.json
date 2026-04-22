@@ -74,7 +74,7 @@
     "url": "git+https://github.com/Addono/gh-attach.git"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+    "registry": "https://registry.npmjs.org/"
   },
   "engines": {
     "node": ">=20"
