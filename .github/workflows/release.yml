@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -87,8 +88,9 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+      - run: npm install -g npm@^11.5.1
       - run: npm ci
       - uses: actions/download-artifact@v7
         with:
@@ -121,8 +123,9 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+      - run: npm install -g npm@^11.5.1
       - run: npm ci
       - uses: actions/download-artifact@v7
         with:
