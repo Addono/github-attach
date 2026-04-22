@@ -1,5 +1,5 @@
 {
-  "name": "@addono/gh-attach",
+  "name": "gh-attach",
   "version": "1.5.7",
   "description": "CLI tool and MCP server for attaching images to GitHub issues, PRs, and comments",
   "type": "module",
@@ -41,6 +41,8 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --project unit --project integration",
     "package": "node scripts/package-binaries.mjs",
+    "prepare:github-package": "node scripts/prepare-github-package.mjs",
+    "publish:github-package": "node scripts/publish-github-package.mjs",
     "prepare": "npm run build"
   },
   "pkg": {
@@ -69,10 +71,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Addono/gh-attach.git"
+    "url": "git+https://github.com/Addono/gh-attach.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "engines": {
     "node": ">=20"

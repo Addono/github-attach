@@ -138,6 +138,19 @@ The system SHALL publish release artifacts.
 - WHEN the release workflow completes
 - THEN it SHALL publish the package to npm as `gh-attach`
 
+#### Scenario: GitHub Packages mirror publish
+
+- GIVEN a new version is released
+- WHEN the release workflow completes
+- THEN it SHALL publish a mirror package to GitHub Packages as `@addono/gh-attach`
+
+#### Scenario: release credentials
+
+- GIVEN the release workflow
+- WHEN it publishes packages
+- THEN it SHALL use GitHub Actions trusted publishing with OIDC for public npm
+- AND it SHALL use the workflow `GITHUB_TOKEN` with `packages: write` for GitHub Packages
+
 #### Scenario: GitHub Release
 
 - GIVEN a new version is released

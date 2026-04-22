@@ -24,11 +24,18 @@ GitHub doesn't provide an official API for attaching images to issues and pull r
 ### Standalone CLI (npm)
 
 ```bash
-# Install globally from GitHub Packages
-npm install -g @addono/gh-attach --registry=https://npm.pkg.github.com
+# Install globally from public npm
+npm install -g gh-attach
 ```
 
 Run it as `gh-attach ...`.
+
+### GitHub Packages mirror
+
+```bash
+# Install the scoped mirror from GitHub Packages
+npm install -g @addono/gh-attach --registry=https://npm.pkg.github.com
+```
 
 ### GitHub CLI extension
 
@@ -53,17 +60,17 @@ Run it as `gh-attach ...`.
 
 ```bash
 # Upload an image
-npx --registry=https://npm.pkg.github.com @addono/gh-attach upload ./screenshot.png --target owner/repo#42
+npx gh-attach upload ./screenshot.png --target owner/repo#42
 
 # Start the MCP server
-npx --registry=https://npm.pkg.github.com @addono/gh-attach mcp --transport stdio
+npx gh-attach mcp --transport stdio
 ```
 
 ## Keeping gh-attach up to date
 
 ```bash
 # npm install
-npm install -g @addono/gh-attach@latest --registry=https://npm.pkg.github.com
+npm install -g gh-attach@latest
 
 # gh extension install
 gh extension upgrade Addono/gh-attach
@@ -72,7 +79,7 @@ gh extension upgrade Addono/gh-attach
 If you run via `npx`, there is nothing to upgrade locally — each invocation resolves the published package. Pin a version explicitly if you do not want the latest release:
 
 ```bash
-npx --registry=https://npm.pkg.github.com @addono/gh-attach@<version> mcp --transport stdio
+npx gh-attach@<version> mcp --transport stdio
 ```
 
 If you installed a standalone release binary, download the newest matching asset from the latest GitHub release and replace your existing `gh-attach` executable.
@@ -124,12 +131,12 @@ Commits images to an orphan branch. Works with any token.
 
 Choose the MCP command that matches how you installed `gh-attach`:
 
-| Install method            | MCP command                                                                         |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| Standalone npm install    | `gh-attach mcp --transport stdio`                                                   |
-| Standalone release binary | `gh-attach mcp --transport stdio`                                                   |
-| `gh` extension            | `gh attach mcp --transport stdio`                                                   |
-| `npx`                     | `npx --registry=https://npm.pkg.github.com @addono/gh-attach mcp --transport stdio` |
+| Install method            | MCP command                           |
+| ------------------------- | ------------------------------------- |
+| Standalone npm install    | `gh-attach mcp --transport stdio`     |
+| Standalone release binary | `gh-attach mcp --transport stdio`     |
+| `gh` extension            | `gh attach mcp --transport stdio`     |
+| `npx`                     | `npx gh-attach mcp --transport stdio` |
 
 When the MCP client supports elicitation, `upload_image` can prompt for a GitHub token during the same tool call and continue the upload without requiring a separate `login` step first.
 
@@ -222,7 +229,7 @@ Add to `.vscode/settings.json`:
 
 This wrapper requires `bash` and an authenticated GitHub CLI session (`gh auth login`). It resolves the token at startup instead of storing it in the config file, but the token is still present in the MCP server process environment while it is running. If `bash` is unavailable, use the standalone CLI setup instead.
 
-If you prefer `npx`, use `command: "npx"` and prepend `--registry=https://npm.pkg.github.com`, `@addono/gh-attach` to the `args` array.
+If you prefer `npx`, use `command: "npx"` and prepend `gh-attach` to the `args` array.
 
 ## Configuration
 
@@ -279,6 +286,18 @@ npm run test:e2e    # E2E tests (requires secrets)
 npm run typecheck   # TypeScript strict mode
 npm run lint        # ESLint
 ```
+
+### Release automation
+
+- Public npm releases publish the unscoped package as `gh-attach`.
+- GitHub Packages keeps a scoped mirror at `@addono/gh-attach`.
+- GitHub Actions publishes to npm via Trusted Publishing (OIDC), so the release workflow does not need an `NPM_TOKEN` repository secret.
+- Configure npm trusted publishing for package `gh-attach` with:
+  - **Organization or user:** `Addono`
+  - **Repository:** `gh-attach`
+  - **Workflow filename:** `release.yml`
+  - **Environment name:** leave empty unless you later protect releases with a GitHub Actions environment
+- After the first trusted publish succeeds, npm recommends enabling **Require two-factor authentication and disallow tokens** in the package publishing access settings.
 
 ### Branch Protection (Recommended)
 

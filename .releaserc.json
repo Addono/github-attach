@@ -12,7 +12,8 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "GH_ATTACH_BUILD_VERSION=${nextRelease.version} npm run build"
+        "prepareCmd": "GH_ATTACH_BUILD_VERSION=${nextRelease.version} npm run build && GH_ATTACH_RELEASE_VERSION=${nextRelease.version} npm run prepare:github-package",
+        "publishCmd": "npm run publish:github-package"
       }
     ],
     "@semantic-release/npm",
