@@ -18,6 +18,9 @@ vi.mock("../../../../src/core/session.js", () => ({
   getSessionCookies: vi.fn(() => null),
   getSessionToken: vi.fn(() => null),
 }));
+vi.mock("../../../../src/core/githubCliAuth.js", () => ({
+  resolveGitHubCliAuth: vi.fn(async () => ({ accounts: [] })),
+}));
 vi.mock("../../../../src/cli/commands/config.js", () => ({
   loadConfig: vi.fn(() => ({})),
 }));
@@ -25,6 +28,7 @@ vi.mock("../../../../src/cli/commands/config.js", () => ({
 import { upload } from "../../../../src/core/upload.js";
 import { validateFile } from "../../../../src/core/validation.js";
 import { loadConfig } from "../../../../src/cli/commands/config.js";
+import { resolveGitHubCliAuth } from "../../../../src/core/githubCliAuth.js";
 
 describe("uploadCommand unit tests", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
@@ -295,5 +299,67 @@ describe("uploadCommand unit tests", () => {
       value: origStdin,
       writable: true,
     });
+  });
+
+  it("falls back to GitHub CLI token when GITHUB_TOKEN/GH_TOKEN are not set", async () => {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GH_TOKEN;
+    delete process.env.GH_ATTACH_COOKIES;
+
+    vi.mocked(resolveGitHubCliAuth).mockResolvedValueOnce({
+      accounts: [],
+      token: "gh-cli-token",
+      login: "octocat",
+    });
+    vi.mocked(validateFile).mockResolvedValue(undefined);
+    vi.mocked(upload).mockResolvedValue({
+      url: "https://example.com/img.png",
+      markdown: "![file.png](https://example.com/img.png)",
+      strategy: "release-asset",
+    });
+
+    await uploadCommand(["file.png"], {
+      target: "owner/repo#1",
+      strategy: "release-asset",
+    });
+
+    expect(resolveGitHubCliAuth).toHaveBeenCalledWith({
+      owner: "owner",
+      repo: "repo",
+    });
+    expect(upload).toHaveBeenCalled();
+  });
+
+  it("does not call gh CLI when GITHUB_TOKEN is set", async () => {
+    process.env.GITHUB_TOKEN = "env-token";
+    vi.mocked(resolveGitHubCliAuth).mockClear();
+    vi.mocked(validateFile).mockResolvedValue(undefined);
+    vi.mocked(upload).mockResolvedValue({
+      url: "https://example.com/img.png",
+      markdown: "![file.png](https://example.com/img.png)",
+      strategy: "release-asset",
+    });
+
+    await uploadCommand(["file.png"], {
+      target: "owner/repo#1",
+      strategy: "release-asset",
+    });
+
+    expect(resolveGitHubCliAuth).not.toHaveBeenCalled();
+  });
+
+  it("throws NoStrategyAvailableError when explicit strategy needs token and gh CLI has none", async () => {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GH_TOKEN;
+    delete process.env.GH_ATTACH_COOKIES;
+
+    vi.mocked(resolveGitHubCliAuth).mockResolvedValueOnce({ accounts: [] });
+
+    await expect(
+      uploadCommand(["file.png"], {
+        target: "owner/repo#1",
+        strategy: "release-asset",
+      }),
+    ).rejects.toThrow(NoStrategyAvailableError);
   });
 });

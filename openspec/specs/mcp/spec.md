@@ -124,6 +124,14 @@ The system SHALL support forwarding authentication from the MCP host.
 - WHEN the MCP server processes an upload request
 - THEN it SHALL use the token for API-based strategies (release-asset, repo-branch)
 
+#### Scenario: GitHub CLI token fallback
+
+- GIVEN neither `GITHUB_TOKEN` nor `GH_TOKEN` is set
+- AND the user has authenticated via the GitHub CLI (`gh auth login`)
+- WHEN the MCP server processes an upload request
+- THEN it SHALL fall back to the token returned by `gh auth token`, preferring an account that can access the target repository
+- AND it SHALL only request elicitation or report missing authentication when no environment, session, or GitHub CLI token can be resolved
+
 #### Scenario: Session from config
 
 - GIVEN a saved browser session exists

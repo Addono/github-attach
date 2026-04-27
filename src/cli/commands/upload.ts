@@ -10,13 +10,14 @@ import {
   getSessionToken,
   loadSession,
 } from "../../core/session.js";
+import { resolveGitHubCliAuth } from "../../core/githubCliAuth.js";
 import { parseTarget } from "../../core/target.js";
 import { validateFile } from "../../core/validation.js";
 import { upload } from "../../core/upload.js";
 import { loadConfig } from "./config.js";
 import { debug } from "../output.js";
 import { ValidationError, NoStrategyAvailableError } from "../../core/types.js";
-import type { UploadStrategy } from "../../core/types.js";
+import type { UploadStrategy, UploadTarget } from "../../core/types.js";
 
 interface UploadOptions {
   target?: string;
@@ -37,33 +38,97 @@ const DEFAULT_STRATEGY_ORDER = [
 ];
 
 /**
- * Create a strategy instance by name.
+ * Resolved authentication context shared between strategy factories.
+ *
+ * Tokens are sourced in this order:
+ *   1. `GITHUB_TOKEN` environment variable
+ *   2. `GH_TOKEN` environment variable
+ *   3. GitHub CLI (`gh auth token`) — picks the account most likely to have
+ *      access to the upload target when one is provided
+ *
+ * @internal
  */
-function createStrategy(name: string): UploadStrategy | null {
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+interface ResolvedAuth {
+  /** GitHub API token usable for release-asset and repo-branch strategies. */
+  apiToken?: string;
+  /** Cookies for the browser-session strategy. */
+  cookies?: string;
+  /** Session token (saved via `gh-attach login`) for the browser-session strategy. */
+  sessionToken?: string;
+}
+
+/**
+ * Resolves authentication for the upload command.
+ *
+ * Tries the `GITHUB_TOKEN` / `GH_TOKEN` environment variables first, then
+ * falls back to the GitHub CLI's stored token (`gh auth token`). When a
+ * `target` is provided, the gh CLI lookup picks the account most likely to
+ * have access to the target repository.
+ *
+ * @internal
+ */
+async function resolveAuth(target?: UploadTarget): Promise<ResolvedAuth> {
   const session = loadSession();
   const cookies = process.env.GH_ATTACH_COOKIES ?? getSessionCookies(session);
   const sessionToken = getSessionToken(session);
 
+  const envToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (envToken) {
+    return {
+      apiToken: envToken,
+      cookies: cookies ?? undefined,
+      sessionToken: sessionToken ?? undefined,
+    };
+  }
+
+  const ghCliAuth = await resolveGitHubCliAuth({
+    owner: target?.owner,
+    repo: target?.repo,
+  });
+
+  if (ghCliAuth.token) {
+    debug(
+      `Using GitHub CLI token${ghCliAuth.login ? ` for user '${ghCliAuth.login}'` : ""}`,
+    );
+    return {
+      apiToken: ghCliAuth.token,
+      cookies: cookies ?? undefined,
+      sessionToken: sessionToken ?? undefined,
+    };
+  }
+
+  return {
+    cookies: cookies ?? undefined,
+    sessionToken: sessionToken ?? undefined,
+  };
+}
+
+/**
+ * Create a strategy instance by name using the resolved auth context.
+ */
+function createStrategy(
+  name: string,
+  auth: ResolvedAuth,
+): UploadStrategy | null {
   switch (name) {
     case "browser-session":
-      if (cookies || sessionToken) {
+      if (auth.cookies || auth.sessionToken) {
         return createBrowserSessionStrategy({
-          cookies: cookies ?? undefined,
-          token: sessionToken ?? undefined,
+          cookies: auth.cookies,
+          token: auth.sessionToken,
         });
       }
       return null;
     case "cookie-extraction":
       return createCookieExtractionStrategy();
     case "release-asset":
-      if (token) {
-        return createReleaseAssetStrategy(token);
+      if (auth.apiToken) {
+        return createReleaseAssetStrategy(auth.apiToken);
       }
       return null;
     case "repo-branch":
-      if (token) {
-        return createRepoBranchStrategy(token);
+      if (auth.apiToken) {
+        return createRepoBranchStrategy(auth.apiToken);
       }
       return null;
     default:
@@ -116,6 +181,9 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
   // Parse target
   const uploadTarget = parseTarget(targetRef);
 
+  // Resolve authentication: env vars first, then gh CLI fallback.
+  const auth = await resolveAuth(uploadTarget);
+
   // Resolve strategy: CLI option > environment variable > config > default
   const explicitStrategy = options.strategy || process.env.GH_ATTACH_STRATEGY;
 
@@ -125,11 +193,11 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
   if (explicitStrategy) {
     // Use only the specified strategy
     debug(`Using explicit strategy: ${explicitStrategy}`);
-    const strategy = createStrategy(explicitStrategy);
+    const strategy = createStrategy(explicitStrategy, auth);
     if (!strategy) {
       throw new NoStrategyAvailableError(
         `Strategy '${explicitStrategy}' is not available. ` +
-          "Check that required environment variables are set.",
+          "Provide credentials via GITHUB_TOKEN/GH_TOKEN, authenticate with the GitHub CLI ('gh auth login'), or run 'gh-attach login' for browser-session uploads.",
         [{ strategy: explicitStrategy, reason: "not available" }],
       );
     }
@@ -144,7 +212,7 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
     debug(`Strategy order: ${strategyOrder.join(", ")}`);
 
     for (const name of strategyOrder) {
-      const strategy = createStrategy(name);
+      const strategy = createStrategy(name, auth);
       if (strategy) {
         strategies.push(strategy);
       }
@@ -153,7 +221,7 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
 
   if (strategies.length === 0) {
     throw new NoStrategyAvailableError(
-      "No authentication available. Set GITHUB_TOKEN (or GH_TOKEN), GH_ATTACH_COOKIES, or run 'gh-attach login' to save a browser session.",
+      "No authentication available. Set GITHUB_TOKEN (or GH_TOKEN), authenticate with the GitHub CLI ('gh auth login'), provide GH_ATTACH_COOKIES, or run 'gh-attach login' to save a browser session.",
       DEFAULT_STRATEGY_ORDER.map((s) => ({
         strategy: s,
         reason: "not configured",

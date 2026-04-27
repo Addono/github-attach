@@ -121,6 +121,14 @@ export GITHUB_TOKEN=ghp_...  # or GH_TOKEN
 gh-attach upload ./img.png --target #42 --strategy release-asset
 ```
 
+If neither `GITHUB_TOKEN` nor `GH_TOKEN` is set, `gh-attach` automatically falls back to a token from the [GitHub CLI](https://cli.github.com/) (`gh auth token`) — so an authenticated `gh auth login` session is enough. The lookup order for the API token is:
+
+1. `GITHUB_TOKEN` environment variable
+2. `GH_TOKEN` environment variable
+3. GitHub CLI stored credentials (`gh auth token`) — when multiple accounts are signed in, the one most likely to have access to the target repository is preferred
+
+This applies to every code path that needs an API token (the `release-asset` and `repo-branch` strategies, in both the CLI and the MCP server).
+
 ### Strategy 3: Cookie Extraction
 
 Automatically extracts GitHub cookies from Chrome/Firefox.
@@ -246,14 +254,14 @@ Config is stored at `~/.config/gh-attach/config.json` (overridable via `GH_ATTAC
 
 ## Environment Variables
 
-| Variable                    | Description                                                   |
-| --------------------------- | ------------------------------------------------------------- |
-| `GITHUB_TOKEN` / `GH_TOKEN` | GitHub API token for release-asset and repo-branch strategies |
-| `GH_ATTACH_COOKIES`         | Session cookies for browser-session strategy                  |
-| `GH_ATTACH_STRATEGY`        | Override default strategy selection                           |
-| `GH_ATTACH_STATE_PATH`      | Override session state file location                          |
-| `GH_ATTACH_CONFIG`          | Override config file location                                 |
-| `NO_COLOR`                  | Disable ANSI color codes in output                            |
+| Variable                    | Description                                                                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_TOKEN` / `GH_TOKEN` | GitHub API token for release-asset and repo-branch strategies. When unset, falls back to `gh auth token` from the GitHub CLI. |
+| `GH_ATTACH_COOKIES`         | Session cookies for browser-session strategy                                                                                  |
+| `GH_ATTACH_STRATEGY`        | Override default strategy selection                                                                                           |
+| `GH_ATTACH_STATE_PATH`      | Override session state file location                                                                                          |
+| `GH_ATTACH_CONFIG`          | Override config file location                                                                                                 |
+| `NO_COLOR`                  | Disable ANSI color codes in output                                                                                            |
 
 ## Exit Codes
 

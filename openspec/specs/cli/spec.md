@@ -214,6 +214,14 @@ The system SHALL support configuration via environment variables.
 - WHEN the release-asset or repo-branch strategy is used
 - THEN it SHALL use the token for authentication
 
+#### Scenario: GitHub CLI token fallback
+
+- GIVEN neither `GITHUB_TOKEN` nor `GH_TOKEN` is set
+- AND the user has authenticated via the GitHub CLI (`gh auth login`)
+- WHEN the release-asset or repo-branch strategy is used (whether selected explicitly via `--strategy` or chosen from the default order)
+- THEN the system SHALL fall back to the token returned by `gh auth token`, preferring an account that can access the target repository
+- AND it SHALL only emit `Strategy '<name>' is not available` when neither an environment token nor a usable GitHub CLI token can be resolved
+
 #### Scenario: State path override
 
 - GIVEN `GH_ATTACH_STATE_PATH` environment variable
