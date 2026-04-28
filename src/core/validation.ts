@@ -4,12 +4,22 @@ import { ValidationError } from "./types.js";
 /**
  * Supported image formats for GitHub uploads.
  */
-const SUPPORTED_FORMATS = new Set(["png", "jpg", "jpeg", "gif", "svg", "webp"]);
+const SUPPORTED_FORMATS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "svg",
+  "webp",
+  "mp4",
+  "mov",
+  "webm",
+]);
 
 /**
- * Maximum file size for GitHub images: 10MB.
+ * Maximum file size for GitHub uploads: 25MB (GitHub's limit for video).
  */
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 /**
  * Validates that a file exists, has a supported format, and is within size limits.
