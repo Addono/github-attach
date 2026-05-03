@@ -1,3 +1,10 @@
+## [1.6.2](https://github.com/Addono/gh-attach/compare/v1.6.1...v1.6.2) (2026-05-03)
+
+
+### Bug Fixes
+
+* resolve typescript breaking change for v6.0.3 ([fce728b](https://github.com/Addono/gh-attach/commit/fce728bf9456b5ca696745c87b73777fb84ab977))
+
 ## [1.6.1](https://github.com/Addono/gh-attach/compare/v1.6.0...v1.6.1) (2026-05-03)
 
 
