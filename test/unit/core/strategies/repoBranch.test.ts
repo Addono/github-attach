@@ -135,6 +135,49 @@ describe("Repository Branch Strategy", () => {
       expect(result.markdown).toContain("![test.png]");
     });
 
+    it("returns bare URLs for uploaded videos", async () => {
+      const strategy = createRepoBranchStrategy("valid-token");
+      const mockFilePath = "/tmp/test.mp4";
+
+      const mockBranch = {
+        commit: {
+          sha: "abc123",
+        },
+      };
+
+      const mockTree = {
+        sha: "tree-sha",
+      };
+
+      const mockCommit = {
+        sha: "commit-sha",
+      };
+
+      mockOctokitInstance.rest.repos.getBranch.mockResolvedValue({
+        data: mockBranch,
+      });
+      mockOctokitInstance.rest.git.createBlob.mockResolvedValue({
+        data: { sha: "blob-sha" },
+      });
+      mockOctokitInstance.rest.git.getTree.mockResolvedValue({
+        data: mockTree,
+      });
+      mockOctokitInstance.rest.git.createTree.mockResolvedValue({
+        data: mockTree,
+      });
+      mockOctokitInstance.rest.git.createCommit.mockResolvedValue({
+        data: mockCommit,
+      });
+      mockOctokitInstance.rest.git.updateRef.mockResolvedValue({});
+
+      const result = await strategy.upload(mockFilePath, mockTarget);
+
+      expect(result.strategy).toBe("repo-branch");
+      expect(result.url).toContain("commit-sha");
+      expect(result.url).toContain("test.mp4");
+      expect(result.markdown).toBe(result.url);
+    });
+
     it("creates branch on first upload", async () => {
       const strategy = createRepoBranchStrategy("valid-token");
       const mockFilePath = "/tmp/test.png";

@@ -1,8 +1,8 @@
 /**
- * gh-attach — Core library for uploading images to GitHub.
+ * gh-attach — Core library for uploading attachments to GitHub.
  *
  * This module exports the main types, error classes, strategy factories, and
- * utility functions for uploading images to GitHub issues and pull requests.
+ * utility functions for uploading attachments to GitHub issues and pull requests.
  * It provides a strategy-based interface for multiple upload mechanisms.
  *
  * @example
@@ -17,7 +17,7 @@
  *   number: 42
  * }, [strategy]);
  *
- * console.log(result.markdown); // ![](https://...)
+ * console.log(result.markdown); // ![](https://...) or a bare video URL
  * ```
  *
  * @module gh-attach

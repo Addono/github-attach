@@ -430,6 +430,46 @@ describe("Browser Session Strategy", () => {
       });
     });
 
+    it("returns bare URLs for uploaded videos", async () => {
+      const strategy = createBrowserSessionStrategy("test-cookie");
+      const mockFilePath = "/tmp/test.mp4";
+
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 12345 }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            upload_url: "https://s3.example.com/upload",
+            form: { key: "videos/test.mp4", policy: "encoded-policy" },
+            token: "csrf-token-123",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            url: "https://user-images.githubusercontent.com/test.mp4",
+          }),
+        });
+
+      const result = await strategy.upload(mockFilePath, mockTarget);
+
+      expect(result).toEqual({
+        url: "https://user-images.githubusercontent.com/test.mp4",
+        markdown: "https://user-images.githubusercontent.com/test.mp4",
+        strategy: "browser-session",
+      });
+    });
+
     it("includes form fields in S3 upload", async () => {
       const strategy = createBrowserSessionStrategy("test-cookie");
       const mockFilePath = "/tmp/image.jpg";

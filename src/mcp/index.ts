@@ -250,14 +250,15 @@ function shouldRetryWithElicitedToken(
 const TOOLS = [
   {
     name: "upload_image",
-    description: "Upload an image to GitHub and get a markdown embed URL",
+    description:
+      "Upload an image or video to GitHub and get GitHub-ready output",
     inputSchema: {
       type: "object",
       properties: {
-        filePath: { type: "string", description: "Path to the image file" },
+        filePath: { type: "string", description: "Path to the file to upload" },
         content: {
           type: "string",
-          description: "Base64 encoded image content",
+          description: "Base64 encoded file content",
         },
         filename: {
           type: "string",
@@ -599,7 +600,7 @@ async function startHttpServer(
  * Create and start the MCP server.
  *
  * Initializes a Model Context Protocol server with the specified transport mechanism.
- * The server exposes tools for uploading images to GitHub and managing authentication.
+ * The server exposes tools for uploading attachments to GitHub and managing authentication.
  *
  * @param transport Transport type: "stdio" (for embedding in Claude/VSCode) or "http" (for network access)
  * @param port Optional port for HTTP transport (default: 3000)

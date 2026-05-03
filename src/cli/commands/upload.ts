@@ -271,7 +271,7 @@ export async function uploadCommand(files: string[], options: UploadOptions) {
 }
 
 /**
- * Reads image data from stdin.
+ * Reads file data from stdin.
  */
 async function readStdin(): Promise<Buffer> {
   return new Promise((resolve, reject) => {

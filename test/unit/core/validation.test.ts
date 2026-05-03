@@ -52,6 +52,24 @@ describe("validateFile", () => {
     await expect(validateFile(filePath)).resolves.toBeUndefined();
   });
 
+  it("accepts MP4 files", async () => {
+    const filePath = path.join(tempDir, "test.mp4");
+    await fs.writeFile(filePath, Buffer.alloc(1000));
+    await expect(validateFile(filePath)).resolves.toBeUndefined();
+  });
+
+  it("accepts MOV files", async () => {
+    const filePath = path.join(tempDir, "test.mov");
+    await fs.writeFile(filePath, Buffer.alloc(1000));
+    await expect(validateFile(filePath)).resolves.toBeUndefined();
+  });
+
+  it("accepts WEBM files", async () => {
+    const filePath = path.join(tempDir, "test.webm");
+    await fs.writeFile(filePath, Buffer.alloc(1000));
+    await expect(validateFile(filePath)).resolves.toBeUndefined();
+  });
+
   it("accepts uppercase extensions", async () => {
     const filePath = path.join(tempDir, "test.PNG");
     await fs.writeFile(filePath, Buffer.alloc(1000));
@@ -107,9 +125,9 @@ describe("validateFile", () => {
     }
   });
 
-  it("throws FILE_TOO_LARGE for files exceeding 10MB", async () => {
+  it("throws FILE_TOO_LARGE for files exceeding 25MB", async () => {
     const filePath = path.join(tempDir, "large.png");
-    const size = 11 * 1024 * 1024; // 11MB
+    const size = 26 * 1024 * 1024; // 26MB
     const file = await fs.open(filePath, "w");
     await file.write(Buffer.alloc(1024 * 1024), 0, 1024 * 1024, 0);
     await file.truncate(size);
@@ -122,14 +140,14 @@ describe("validateFile", () => {
       expect(err).toBeInstanceOf(ValidationError);
       expect((err as ValidationError).code).toBe("FILE_TOO_LARGE");
       expect((err as ValidationError).details?.size).toBeGreaterThan(
-        10 * 1024 * 1024,
+        25 * 1024 * 1024,
       );
     }
   });
 
-  it("accepts files at 10MB boundary", async () => {
+  it("accepts files at 25MB boundary", async () => {
     const filePath = path.join(tempDir, "boundary.png");
-    const size = 10 * 1024 * 1024;
+    const size = 25 * 1024 * 1024;
     const file = await fs.open(filePath, "w");
     await file.truncate(size);
     await file.close();
@@ -151,6 +169,7 @@ describe("validateFile", () => {
       >;
       expect(Array.isArray(details.supported)).toBe(true);
       expect((details.supported as string[]).includes("png")).toBe(true);
+      expect((details.supported as string[]).includes("mp4")).toBe(true);
     }
   });
 });

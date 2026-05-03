@@ -1,5 +1,6 @@
 import { basename } from "path";
 import { readFileSync } from "fs";
+import { formatAttachmentMarkdown } from "../attachment.js";
 import { AuthenticationError, UploadError } from "../types.js";
 import type { UploadResult, UploadStrategy, UploadTarget } from "../types.js";
 
@@ -75,7 +76,7 @@ export function createBrowserSessionStrategy(
         );
 
         // Generate markdown
-        const markdown = `![${basename(filePath)}](${url})`;
+        const markdown = formatAttachmentMarkdown(filePath, url);
 
         return {
           url,

@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import { readFileSync } from "fs";
 import { basename } from "path";
+import { formatAttachmentMarkdown } from "../attachment.js";
 import { AuthenticationError, UploadError } from "../types.js";
 import type { UploadResult, UploadStrategy, UploadTarget } from "../types.js";
 
@@ -8,7 +9,7 @@ const BRANCH_NAME = "gh-attach-assets";
 
 /**
  * Repository Branch upload strategy using GitHub's REST API.
- * Commits images to a dedicated orphan branch and returns raw.githubusercontent.com URLs.
+ * Commits attachments to a dedicated orphan branch and returns raw.githubusercontent.com URLs.
  *
  * @param token GitHub API token with `contents:write` permission
  * @returns UploadStrategy implementation
@@ -55,7 +56,7 @@ export function createRepoBranchStrategy(token: string): UploadStrategy {
           `${commitSha}/${filename}`;
 
         // Generate markdown
-        const markdown = `![${filename}](${url})`;
+        const markdown = formatAttachmentMarkdown(filePath, url);
 
         return {
           url,
@@ -111,7 +112,7 @@ async function ensureAssetsBranch(
         const { data: blob } = await octokit.rest.git.createBlob({
           owner: target.owner,
           repo: target.repo,
-          content: "# gh-attach assets",
+          content: "# gh-attach attachments",
           encoding: "utf-8",
         });
 
@@ -131,7 +132,7 @@ async function ensureAssetsBranch(
         const { data: commit } = await octokit.rest.git.createCommit({
           owner: target.owner,
           repo: target.repo,
-          message: "Initial commit for image assets",
+          message: "Initial commit for attachment assets",
           tree: tree.sha,
           parents: [],
         });

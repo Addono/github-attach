@@ -3,17 +3,18 @@
 [![CI](https://github.com/Addono/gh-attach/actions/workflows/ci.yml/badge.svg)](https://github.com/Addono/gh-attach/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/gh-attach)](https://www.npmjs.com/package/gh-attach)
 
-> Upload images to GitHub issues, PRs, and comments — from the CLI or via MCP.
+> Upload images and videos to GitHub issues, PRs, and comments — from the CLI or via MCP.
 
 <p align="center">
   <img src="demo.svg" alt="gh-attach CLI demo" width="700">
 </p>
 
-GitHub doesn't provide an official API for attaching images to issues and pull requests. `gh-attach` fills this gap with multiple upload strategies, a clean CLI, and an MCP server for AI-powered workflows.
+GitHub doesn't provide an official API for comment attachments on issues and pull requests. `gh-attach` fills this gap with multiple upload strategies, a clean CLI, and an MCP server for AI-powered workflows.
 
 ## Features
 
 - **Multiple upload strategies** — browser session, cookie extraction, release assets (official API), repo-branch fallback
+- **Images + videos** — PNG, GIF, JPEG, SVG, WebP, MP4, MOV, and WEBM
 - **CLI tool** — works standalone or as a `gh` extension (`gh attach`)
 - **MCP server** — expose upload capabilities to AI applications via Model Context Protocol
 - **Fully tested** — unit, integration, and E2E test suites
@@ -61,7 +62,7 @@ Run it as `gh-attach ...`.
 ## Run without installing (npx)
 
 ```bash
-# Upload an image
+# Upload a file
 npx gh-attach upload ./screenshot.png --target owner/repo#42
 
 # Start the MCP server
@@ -93,7 +94,7 @@ Verify the active version with `gh-attach --version` or `gh attach --version`, d
 If you installed `gh-attach` as a GitHub CLI extension, replace `gh-attach` with `gh attach` in the examples below.
 
 ```bash
-# Upload an image to an issue
+# Upload a file to an issue
 gh-attach upload ./screenshot.png --target owner/repo#42
 
 # Upload using the release-asset strategy (official API, works with tokens)
@@ -105,6 +106,8 @@ gh-attach upload ./img.png --target #42 --format url
 # JSON output
 gh-attach upload ./img.png --target #42 --format json
 ```
+
+Videos (`.mp4`, `.mov`, `.webm`) are emitted as bare URLs in `markdown` output so GitHub can render them inline when the target upload URL supports video playback.
 
 ## Authentication
 
@@ -135,7 +138,7 @@ Automatically extracts GitHub cookies from Chrome/Firefox.
 
 ### Strategy 4: Repository Branch
 
-Commits images to an orphan branch. Works with any token.
+Commits attachments to an orphan branch. Works with any token.
 
 ## MCP Server
 

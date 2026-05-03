@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import { readFileSync } from "fs";
 import { basename } from "path";
+import { formatAttachmentMarkdown } from "../attachment.js";
 import { AuthenticationError, UploadError } from "../types.js";
 import type { UploadResult, UploadStrategy, UploadTarget } from "../types.js";
 
@@ -49,7 +50,7 @@ function getRateLimitReset(err: unknown): number | undefined {
 
 /**
  * Release Asset upload strategy using GitHub's official REST API.
- * Uploads images as assets to a special draft release in the repository.
+ * Uploads attachments as assets to a special release in the repository.
  *
  * @param token GitHub API token with `contents:write` permission
  * @returns UploadStrategy implementation
@@ -89,7 +90,7 @@ export function createReleaseAssetStrategy(token: string): UploadStrategy {
         );
 
         // Generate markdown
-        const markdown = `![${filename}](${url})`;
+        const markdown = formatAttachmentMarkdown(filePath, url);
 
         return {
           url,
@@ -141,8 +142,8 @@ async function findOrCreateAssetsRelease(
           owner: target.owner,
           repo: target.repo,
           tag_name: ASSETS_TAG,
-          name: "gh-attach image assets",
-          body: "This is a dummy release used by [gh-attach](https://github.com/Addono/gh-attach) as storage for image assets attached to issues and pull requests.\n\n> [!WARNING]\n> Do not delete this release or its assets — doing so will break image embeds that reference them.",
+          name: "gh-attach attachments",
+          body: "This is a dummy release used by [gh-attach](https://github.com/Addono/gh-attach) as storage for attachment files linked from issues and pull requests.\n\n> [!WARNING]\n> Do not delete this release or its assets — doing so will break attachment links and embeds that reference them.",
           draft: false,
           prerelease: true,
         });

@@ -3,7 +3,7 @@
  */
 
 /**
- * Represents a target location for uploading an image (an issue or pull request).
+ * Represents a target location for uploading an attachment (an issue or pull request).
  */
 export interface UploadTarget {
   /** GitHub repository owner */
@@ -17,12 +17,12 @@ export interface UploadTarget {
 }
 
 /**
- * Result of a successful image upload.
+ * Result of a successful attachment upload.
  */
 export interface UploadResult {
-  /** Direct URL to the uploaded image */
+  /** Direct URL to the uploaded attachment */
   url: string;
-  /** Markdown markdown format: `![](url)` */
+  /** GitHub-ready markdown output: image embed syntax or a bare video URL */
   markdown: string;
   /** Name of the strategy used */
   strategy: string;
@@ -30,15 +30,15 @@ export interface UploadResult {
 
 /**
  * Abstract interface for upload strategies.
- * Implementations provide different mechanisms to upload images to GitHub.
+ * Implementations provide different mechanisms to upload attachments to GitHub.
  */
 export interface UploadStrategy {
   /** Unique identifier for this strategy (e.g., "release-asset", "browser-session") */
   name: string;
   /**
-   * Upload an image file to the specified target location.
+   * Upload a supported attachment to the specified target location.
    *
-   * @param filePath Absolute path to the image file to upload
+   * @param filePath Absolute path to the file to upload
    * @param target The target issue or pull request
    * @returns Upload result with URL and markdown
    * @throws {UploadError} If the upload fails
@@ -113,7 +113,7 @@ export class UploadError extends GhAttachError {
  *
  * Error codes include:
  * - `FILE_TOO_LARGE` — File exceeds size limit
- * - `UNSUPPORTED_FORMAT` — Image format is not supported
+ * - `UNSUPPORTED_FORMAT` — Attachment format is not supported
  * - `INVALID_TARGET` — Target format is malformed
  */
 export class ValidationError extends GhAttachError {

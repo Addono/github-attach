@@ -28,7 +28,7 @@ Options:
 exports[`CLI Help Output Snapshots > should match main help output 1`] = `
 "Usage: gh-attach [options] [command]
 
-Upload images to GitHub issues, PRs, and comments
+Upload images and videos to GitHub issues, PRs, and comments
 
 Options:
   -V, --version                  output the version number
@@ -39,7 +39,8 @@ Options:
   -h, --help                     display help for command
 
 Commands:
-  upload [options] [files...]    Upload an image and get a markdown embed URL
+  upload [options] [files...]    Upload an image or video and get GitHub-ready
+                                 output
   login [options]                Authenticate with GitHub via browser
   config [action] [key] [value]  Manage gh-attach configuration
   mcp [options]                  Start the MCP server
@@ -60,10 +61,10 @@ Options:
 exports[`CLI Help Output Snapshots > should match upload command help output 1`] = `
 "Usage: gh-attach upload [options] [files...]
 
-Upload an image and get a markdown embed URL
+Upload an image or video and get GitHub-ready output
 
 Arguments:
-  files              Image file(s) to upload
+  files              Image or video file(s) to upload
 
 Options:
   --target <ref>     GitHub issue/PR reference (owner/repo#N, #N, or URL)

@@ -112,6 +112,19 @@ describe("uploadCommand unit tests", () => {
     );
   });
 
+  it("passes through bare video URLs for markdown output", async () => {
+    vi.mocked(validateFile).mockResolvedValue(undefined);
+    vi.mocked(upload).mockResolvedValue({
+      url: "https://example.com/video.mp4",
+      markdown: "https://example.com/video.mp4",
+      strategy: "browser-session",
+    });
+
+    await uploadCommand(["test.mp4"], { target: "owner/repo#1" });
+
+    expect(consoleSpy).toHaveBeenCalledWith("https://example.com/video.mp4");
+  });
+
   it("outputs URL format when --format url", async () => {
     vi.mocked(validateFile).mockResolvedValue(undefined);
     vi.mocked(upload).mockResolvedValue({

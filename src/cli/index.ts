@@ -81,7 +81,7 @@ export function createProgram(): Command {
 
   program
     .name("gh-attach")
-    .description("Upload images to GitHub issues, PRs, and comments")
+    .description("Upload images and videos to GitHub issues, PRs, and comments")
     .version(resolveVersion())
     .option("-v, --verbose", "Print debug information to stderr")
     .option(
@@ -98,8 +98,8 @@ export function createProgram(): Command {
 
   program
     .command("upload")
-    .description("Upload an image and get a markdown embed URL")
-    .argument("[files...]", "Image file(s) to upload")
+    .description("Upload an image or video and get GitHub-ready output")
+    .argument("[files...]", "Image or video file(s) to upload")
     .option(
       "--target <ref>",
       "GitHub issue/PR reference (owner/repo#N, #N, or URL)",

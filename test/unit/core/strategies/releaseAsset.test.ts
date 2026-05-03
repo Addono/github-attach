@@ -130,6 +130,39 @@ describe("Release Asset Strategy", () => {
       });
     });
 
+    it("returns bare URLs for uploaded videos", async () => {
+      const strategy = createReleaseAssetStrategy("valid-token");
+      const mockFilePath = "/tmp/test.mp4";
+
+      const mockRelease = {
+        id: 123,
+        tag_name: "_gh-attach-assets",
+        draft: false,
+        prerelease: true,
+      };
+
+      const mockAsset = {
+        name: "test.mp4",
+        browser_download_url: "https://github.com/releases/download/test.mp4",
+      };
+
+      mockOctokitInstance.rest.repos.getReleaseByTag.mockResolvedValue({
+        data: mockRelease,
+      });
+      mockOctokitInstance.rest.repos.listReleaseAssets.mockResolvedValue({
+        data: [],
+      });
+      mockOctokitInstance.rest.repos.uploadReleaseAsset.mockResolvedValue({
+        data: mockAsset,
+      });
+
+      const result = await strategy.upload(mockFilePath, mockTarget);
+
+      expect(result.url).toBe(mockAsset.browser_download_url);
+      expect(result.markdown).toBe(mockAsset.browser_download_url);
+      expect(result.strategy).toBe("release-asset");
+    });
+
     it("creates release on first upload", async () => {
       const strategy = createReleaseAssetStrategy("valid-token");
       const mockFilePath = "/tmp/test.png";
@@ -166,8 +199,8 @@ describe("Release Asset Strategy", () => {
           owner: mockTarget.owner,
           repo: mockTarget.repo,
           tag_name: "_gh-attach-assets",
-          name: "gh-attach image assets",
-          body: "This is a dummy release used by [gh-attach](https://github.com/Addono/gh-attach) as storage for image assets attached to issues and pull requests.\n\n> [!WARNING]\n> Do not delete this release or its assets — doing so will break image embeds that reference them.",
+          name: "gh-attach attachments",
+          body: "This is a dummy release used by [gh-attach](https://github.com/Addono/gh-attach) as storage for attachment files linked from issues and pull requests.\n\n> [!WARNING]\n> Do not delete this release or its assets — doing so will break attachment links and embeds that reference them.",
           draft: false,
           prerelease: true,
         },

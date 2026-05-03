@@ -6,13 +6,13 @@ import {
 } from "./types.js";
 
 /**
- * Upload an image using the first available strategy from the provided list.
+ * Upload a supported attachment using the first available strategy from the provided list.
  *
  * Tries each strategy in order and uses the first one that uploads successfully.
  * Falls back through the list when a strategy is unavailable or when an available
  * strategy fails with an authentication or upload error.
  *
- * @param filePath Absolute path to the image file to upload
+ * @param filePath Absolute path to the file to upload
  * @param target The target issue or pull request
  * @param strategies List of upload strategies to try, in priority order
  * @returns Upload result with URL and markdown
