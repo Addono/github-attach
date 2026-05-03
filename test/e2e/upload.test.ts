@@ -145,7 +145,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
         });
         releaseExisted = true;
       } catch {
-        releaseExisted = false;
+        // Release does not exist yet.
       }
 
       // Upload image
@@ -242,7 +242,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
         });
         branchExisted = true;
       } catch {
-        branchExisted = false;
+        // Branch does not exist yet.
       }
 
       // Upload image
