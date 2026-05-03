@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/Addono/gh-attach/compare/v1.6.0...v1.6.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* resolve eslint breaking change for v10.3.0 ([272a841](https://github.com/Addono/gh-attach/commit/272a8415c9fc3a2504ad0e2a67bcdf12ae32999d))
+
 # [1.6.0](https://github.com/Addono/gh-attach/compare/v1.5.8...v1.6.0) (2026-04-27)
 
 
