@@ -64,10 +64,10 @@ Run it as `gh-attach ...`.
 
 ```bash
 # Upload a file
-npx gh-attach upload ./screenshot.png --target owner/repo#42
+npx -y gh-attach@latest upload ./screenshot.png --target owner/repo#42
 
 # Start the MCP server
-npx gh-attach mcp --transport stdio
+npx -y gh-attach@latest mcp --transport stdio
 ```
 
 ## Keeping gh-attach up to date
@@ -80,10 +80,10 @@ npm install -g gh-attach@latest
 gh extension upgrade Addono/gh-attach
 ```
 
-If you run via `npx`, there is nothing to upgrade locally — each invocation resolves the published package. Pin a version explicitly if you do not want the latest release:
+If you run via `npx`, there is nothing to upgrade locally — each invocation resolves `gh-attach@latest`. Pin a specific version instead if you do not want the latest release:
 
 ```bash
-npx gh-attach@<version> mcp --transport stdio
+npx -y gh-attach@<version> mcp --transport stdio
 ```
 
 If you installed a standalone release binary, download the newest matching asset from the latest GitHub release and replace your existing `gh-attach` executable.
@@ -150,7 +150,7 @@ Choose the MCP command that matches how you installed `gh-attach`:
 | Standalone npm install    | `gh-attach mcp --transport stdio`     |
 | Standalone release binary | `gh-attach mcp --transport stdio`     |
 | `gh` extension            | `gh attach mcp --transport stdio`     |
-| `npx`                     | `npx gh-attach mcp --transport stdio` |
+| `npx`                     | `npx -y gh-attach@latest mcp --transport stdio` |
 
 When the MCP client supports elicitation, `upload_image` can prompt for a GitHub token during the same tool call and continue the upload without requiring a separate `login` step first.
 
@@ -243,7 +243,7 @@ Add to `.vscode/settings.json`:
 
 This wrapper requires `bash` and an authenticated GitHub CLI session (`gh auth login`). It resolves the token at startup instead of storing it in the config file, but the token is still present in the MCP server process environment while it is running. If `bash` is unavailable, use the standalone CLI setup instead.
 
-If you prefer `npx`, use `command: "npx"` and prepend `gh-attach` to the `args` array.
+If you prefer `npx`, use `command: "npx"` and prepend `-y`, `gh-attach@latest` to the `args` array.
 
 ## Configuration
 
