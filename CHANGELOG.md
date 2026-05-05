@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/Addono/gh-attach/compare/v1.7.0...v1.7.1) (2026-05-05)
+
+
+### Bug Fixes
+
+* use GitHub raw URLs for repo-branch ([#86](https://github.com/Addono/gh-attach/issues/86)) ([4f24def](https://github.com/Addono/gh-attach/commit/4f24defc21e12e8651187feb82a02caf6d89ca32))
+
 # [1.7.0](https://github.com/Addono/gh-attach/compare/v1.6.2...v1.7.0) (2026-05-03)
 
 
