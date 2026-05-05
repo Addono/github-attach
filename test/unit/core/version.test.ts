@@ -13,6 +13,7 @@ describe("resolvePackageVersion", () => {
 
   beforeEach(() => {
     delete process.env.__PKG_VERSION__;
+    delete process.env.GH_ATTACH_BUILD_VERSION;
 
     tempRoot = mkdtempSync(join(tmpdir(), "gh-attach-version-"));
     writeFileSync(
@@ -25,6 +26,7 @@ describe("resolvePackageVersion", () => {
 
   afterEach(() => {
     delete process.env.__PKG_VERSION__;
+    delete process.env.GH_ATTACH_BUILD_VERSION;
     rmSync(tempRoot, { recursive: true, force: true });
   });
 
@@ -46,6 +48,27 @@ describe("resolvePackageVersion", () => {
 
   it("prefers the injected build version when present", () => {
     process.env.__PKG_VERSION__ = "2.3.4";
+
+    const version = resolvePackageVersion(
+      pathToFileURL(join(tempRoot, "dist", "mcp.js")).href,
+    );
+
+    expect(version).toBe("2.3.4");
+  });
+
+  it("uses the release build version during source-driven runs", () => {
+    process.env.GH_ATTACH_BUILD_VERSION = "3.4.5";
+
+    const version = resolvePackageVersion(
+      pathToFileURL(join(tempRoot, "src", "mcp", "index.ts")).href,
+    );
+
+    expect(version).toBe("3.4.5");
+  });
+
+  it("prefers the bundled build version over the runtime release override", () => {
+    process.env.__PKG_VERSION__ = "2.3.4";
+    process.env.GH_ATTACH_BUILD_VERSION = "3.4.5";
 
     const version = resolvePackageVersion(
       pathToFileURL(join(tempRoot, "dist", "mcp.js")).href,

@@ -9,6 +9,17 @@ export const DEVELOPMENT_VERSION = "0.0.0-development";
 
 const MAX_PACKAGE_SEARCH_DEPTH = 3;
 
+function readInjectedBuildVersion(): string | undefined {
+  const version =
+    process.env.__PKG_VERSION__ ?? process.env.GH_ATTACH_BUILD_VERSION;
+
+  if (typeof version === "string" && version.length > 0) {
+    return version;
+  }
+
+  return undefined;
+}
+
 function readPackageVersion(pkgPath: string): string | undefined {
   if (!existsSync(pkgPath)) {
     return undefined;
@@ -36,8 +47,9 @@ export function resolvePackageVersion(
   moduleUrl: string,
   fallback = DEVELOPMENT_VERSION,
 ): string {
-  if (process.env.__PKG_VERSION__) {
-    return process.env.__PKG_VERSION__;
+  const injectedBuildVersion = readInjectedBuildVersion();
+  if (injectedBuildVersion) {
+    return injectedBuildVersion;
   }
 
   try {

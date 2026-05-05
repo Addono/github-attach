@@ -63,6 +63,23 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  release-parity:
+    name: Release parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          GH_ATTACH_BUILD_VERSION: 9.9.9
+      - run: npm test
+        env:
+          GH_ATTACH_BUILD_VERSION: 9.9.9
+
   test:
     name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
