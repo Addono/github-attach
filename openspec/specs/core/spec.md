@@ -109,15 +109,15 @@ The system SHALL support committing images to a dedicated orphan branch.
 - AND no existing `gh-attach-assets` branch
 - WHEN `upload(file, target)` is called
 - THEN the system SHALL create an orphan branch `gh-attach-assets`
-- AND commit the image file
-- AND return the `raw.githubusercontent.com` URL
+- AND commit the image file to a unique path on that branch
+- AND return the GitHub raw URL rooted at `refs/heads/gh-attach-assets`
 
 #### Scenario: Subsequent upload
 
 - GIVEN an existing `gh-attach-assets` branch
 - WHEN `upload(file, target)` is called
-- THEN the system SHALL commit the image to the existing branch
-- AND return the raw URL with the commit SHA for immutability
+- THEN the system SHALL commit the image to a new unique path on the existing branch
+- AND return the GitHub raw URL for that branch path
 
 ### Requirement: Strategy Selection and Fallback
 

@@ -54,7 +54,7 @@ Each upload strategy SHALL have comprehensive unit tests.
 - THEN tests SHALL cover:
   - Creating orphan branch
   - Committing to existing branch
-  - URL generation with commit SHA
+  - URL generation using the GitHub raw URL format
 
 #### Scenario: Cookie extraction strategy unit tests
 

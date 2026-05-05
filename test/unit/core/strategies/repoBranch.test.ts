@@ -9,6 +9,10 @@ import type { UploadTarget } from "../../../../src/core/types.js";
 // Create a shared mock object that will be reused
 let mockOctokitInstance: Record<string, unknown>;
 
+vi.mock("crypto", () => ({
+  randomUUID: vi.fn(() => "asset-id"),
+}));
+
 // Mock the Octokit module
 vi.mock("@octokit/rest", () => {
   return {
@@ -130,8 +134,9 @@ describe("Repository Branch Strategy", () => {
       const result = await strategy.upload(mockFilePath, mockTarget);
 
       expect(result.strategy).toBe("repo-branch");
-      expect(result.url).toContain("commit-sha");
-      expect(result.url).toContain("test.png");
+      expect(result.url).toBe(
+        "https://github.com/testowner/testrepo/raw/refs/heads/gh-attach-assets/asset-id/test.png",
+      );
       expect(result.markdown).toContain("![test.png]");
     });
 
@@ -173,8 +178,9 @@ describe("Repository Branch Strategy", () => {
       const result = await strategy.upload(mockFilePath, mockTarget);
 
       expect(result.strategy).toBe("repo-branch");
-      expect(result.url).toContain("commit-sha");
-      expect(result.url).toContain("test.mp4");
+      expect(result.url).toBe(
+        "https://github.com/testowner/testrepo/raw/refs/heads/gh-attach-assets/asset-id/test.mp4",
+      );
       expect(result.markdown).toBe(result.url);
     });
 

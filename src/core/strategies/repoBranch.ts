@@ -1,4 +1,5 @@
 import { Octokit } from "@octokit/rest";
+import { randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import { basename } from "path";
 import { formatAttachmentMarkdown } from "../attachment.js";
@@ -9,7 +10,7 @@ const BRANCH_NAME = "gh-attach-assets";
 
 /**
  * Repository Branch upload strategy using GitHub's REST API.
- * Commits attachments to a dedicated orphan branch and returns raw.githubusercontent.com URLs.
+ * Commits attachments to a dedicated orphan branch and returns GitHub raw URLs.
  *
  * @param token GitHub API token with `contents:write` permission
  * @returns UploadStrategy implementation
@@ -40,20 +41,20 @@ export function createRepoBranchStrategy(token: string): UploadStrategy {
 
         // Commit the file to the branch
         const filename = basename(filePath);
+        const assetPath = createAssetPath(filename);
         const fileContent = readFileSync(filePath, "base64");
 
-        const commitSha = await commitFile(
+        await commitFile(
           octokit,
           target,
           filename,
+          assetPath,
           fileContent,
           branchSha,
         );
 
-        // Generate the raw.githubusercontent.com URL with commit SHA
-        const url =
-          `https://raw.githubusercontent.com/${target.owner}/${target.repo}/` +
-          `${commitSha}/${filename}`;
+        // Use GitHub's authenticated raw URL so attachments resolve for private repositories.
+        const url = buildAssetUrl(target, assetPath);
 
         // Generate markdown
         const markdown = formatAttachmentMarkdown(filePath, url);
@@ -81,6 +82,19 @@ export function createRepoBranchStrategy(token: string): UploadStrategy {
       }
     },
   };
+}
+
+function createAssetPath(filename: string): string {
+  return `${randomUUID()}/${filename}`;
+}
+
+function buildAssetUrl(target: UploadTarget, assetPath: string): string {
+  const encodedAssetPath = assetPath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `https://github.com/${target.owner}/${target.repo}/raw/refs/heads/${BRANCH_NAME}/${encodedAssetPath}`;
 }
 
 /**
@@ -185,9 +199,10 @@ async function commitFile(
   octokit: InstanceType<typeof Octokit>,
   target: UploadTarget,
   filename: string,
+  assetPath: string,
   content: string,
   baseSha: string,
-): Promise<string> {
+): Promise<void> {
   try {
     // Create blob
     const { data: blob } = await octokit.rest.git.createBlob({
@@ -211,7 +226,7 @@ async function commitFile(
       base_tree: baseTree.sha,
       tree: [
         {
-          path: filename,
+          path: assetPath,
           mode: "100644",
           type: "blob",
           sha: blob.sha,
@@ -235,8 +250,6 @@ async function commitFile(
       ref: `heads/${BRANCH_NAME}`,
       sha: commit.sha,
     });
-
-    return commit.sha;
   } catch (err) {
     throw new UploadError(
       `Failed to commit file: ${err instanceof Error ? err.message : String(err)}`,

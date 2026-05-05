@@ -250,7 +250,7 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
 
       // Verify result
       expect(result.url).toMatch(
-        /^https:\/\/raw\.githubusercontent\.com\/.+\/[a-f0-9]{40}\/test-image\.png$/,
+        /^https:\/\/github\.com\/.+\/raw\/refs\/heads\/gh-attach-assets\/[^/]+\/test-image\.png$/,
       );
       expect(result.markdown).toMatch(/^!\[test-image\.png\]\(https:\/\//);
       expect(result.strategy).toBe("repo-branch");
@@ -273,10 +273,10 @@ describe.skipIf(!E2E_ENABLED)("E2E Upload Tests", () => {
       const result1 = await strategy.upload(TEST_IMAGE_PATH, target);
       const result2 = await strategy.upload(TEST_IMAGE_PATH, target);
 
-      // Both should succeed with different commit SHAs (URLs differ)
+      // Both should succeed with different unique branch paths
       expect(result1.strategy).toBe("repo-branch");
       expect(result2.strategy).toBe("repo-branch");
-      // The URLs will have different commit SHAs
+      // The URLs will have different asset paths
       expect(result1.url).not.toBe(result2.url);
 
       // Verify both URLs are accessible
