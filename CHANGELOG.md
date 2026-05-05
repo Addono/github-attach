@@ -1,3 +1,11 @@
+## [1.7.2](https://github.com/Addono/gh-attach/compare/v1.7.1...v1.7.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* align CI with release build version ([#89](https://github.com/Addono/gh-attach/issues/89)) ([1def42f](https://github.com/Addono/gh-attach/commit/1def42fcd00f3e3b7c10fece40b88d2aef20d8d6))
+* report active package version in MCP startup ([#88](https://github.com/Addono/gh-attach/issues/88)) ([3863102](https://github.com/Addono/gh-attach/commit/3863102ab9aed51265a9dacc17f9710b2938748a)), closes [#attach](https://github.com/Addono/gh-attach/issues/attach)
+
 ## [1.7.1](https://github.com/Addono/gh-attach/compare/v1.7.0...v1.7.1) (2026-05-05)
 
 
