@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Addono/gh-attach/actions/workflows/ci.yml/badge.svg)](https://github.com/Addono/gh-attach/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/gh-attach)](https://www.npmjs.com/package/gh-attach)
+[![npm downloads](https://img.shields.io/npm/dt/gh-attach)](https://www.npmjs.com/package/gh-attach)
 
 > Upload images and videos to GitHub issues, PRs, and comments — from the CLI or via MCP.
 
